@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checklist de Guardia | Inspección Operativa</title>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- html2pdf & jsPDF libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Header Principal -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Checklist de Guardia</h1>
+                    <p>Inspección Operativa - Fines de Semana & Feriados</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="btn-reset" class="btn btn-secondary" title="Reiniciar Checklist">
+                    <i class="fa-solid fa-rotate-left"></i> Reiniciar
+                </button>
+                <button id="btn-pdf" class="btn btn-primary">
+                    <i class="fa-solid fa-file-pdf"></i> Generar Reporte PDF
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Panel de Configuración de Ronda y Datos de Guardia -->
+        <section class="card config-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-clipboard-user"></i> Datos de la Inspección</h2>
+                <span class="badge badge-info">Control de Guardia</span>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="guard-name"><i class="fa-solid fa-user-shield"></i> Nombre del Inspector / Guardia</label>
+                    <input type="text" id="guard-name" placeholder="Ej. Juan Pérez" required>
+                </div>
+                <div class="form-group">
+                    <label for="shift-type"><i class="fa-solid fa-business-time"></i> Tipo de Guardia</label>
+                    <select id="shift-type">
+                        <option value="Fin de Semana - Diurno">Fin de Semana - Diurno</option>
+                        <option value="Fin de Semana - Nocturno">Fin de Semana - Nocturno</option>
+                        <option value="Día Feriado - Diurno">Día Feriado - Diurno</option>
+                        <option value="Día Feriado - Nocturno">Día Feriado - Nocturno</option>
+                        <option value="Especial">Guardia Especial</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inspection-date"><i class="fa-solid fa-calendar-day"></i> Fecha y Hora de Inicio</label>
+                    <input type="datetime-local" id="inspection-date">
+                </div>
+                <div class="form-group">
+                    <label for="building-name"><i class="fa-solid fa-building"></i> Sede / Edificio</label>
+                    <input type="text" id="building-name" value="Sede Principal - Edificio Operativo">
+                </div>
+            </div>
+
+            <!-- Selector de Dirección de Recorrido (Sube vs Baja) -->
+            <div class="direction-selector-wrapper">
+                <div class="direction-title">
+                    <i class="fa-solid fa-route"></i> Sentido del Recorrido por Pisos:
+                </div>
+                <div class="direction-options">
+                    <label class="direction-card" id="dir-up-label">
+                        <input type="radio" name="direction" value="up" id="dir-up" checked>
+                        <div class="direction-card-content">
+                            <i class="fa-solid fa-arrow-up-short-wide"></i>
+                            <div class="dir-text">
+                                <strong>SUBE (Ascendente)</strong>
+                                <span>Desde Sótano ➔ Terraza/Techo</span>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="direction-card" id="dir-down-label">
+                        <input type="radio" name="direction" value="down" id="dir-down">
+                        <div class="direction-card-content">
+                            <i class="fa-solid fa-arrow-down-wide-short"></i>
+                            <div class="dir-text">
+                                <strong>BAJA (Descendente)</strong>
+                                <span>Desde Terraza/Techo ➔ Sótano</span>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tablero de Progreso e Métricas en Tiempo Real -->
+        <section class="metrics-grid">
+            <div class="metric-card metric-progress">
+                <div class="metric-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                <div class="metric-info">
+                    <span class="metric-value" id="val-progress">0%</span>
+                    <span class="metric-label">Progreso Total</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="bar-progress" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <div class="metric-card metric-ok">
+                <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="metric-info">
+                    <span class="metric-value" id="val-ok">0</span>
+                    <span class="metric-label">Conforme (OK)</span>
+                </div>
+            </div>
+
+            <div class="metric-card metric-issue">
+                <div class="metric-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="metric-info">
+                    <span class="metric-value" id="val-issue">0</span>
+                    <span class="metric-label">Con Novedad</span>
+                </div>
+            </div>
+
+            <div class="metric-card metric-na">
+                <div class="metric-icon"><i class="fa-solid fa-ban"></i></div>
+                <div class="metric-info">
+                    <span class="metric-value" id="val-na">0</span>
+                    <span class="metric-label">No Aplica (N/A)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filtros Rápidos de Filtro por Pisos o Categorías -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <span><i class="fa-solid fa-filter"></i> Filtrar por Categoría:</span>
+                <select id="category-filter">
+                    <option value="all">Todas las tareas de Operaciones</option>
+                    <option value="Bombas de Agua">Bombas de Agua</option>
+                    <option value="Tableros Eléctricos">Tableros Eléctricos</option>
+                    <option value="Luces Perimetrales">Luces Perimetrales y Fachada</option>
+                    <option value="Vías de Evacuación">Vías de Evacuación</option>
+                    <option value="Aires Centrales">Aires Centrales / Climatización</option>
+                    <option value="Llaves de Gas y Agua">Llaves de Gas y Agua</option>
+                    <option value="Pantallas y Avisos">Pantallas, Avisos y Vitrinas</option>
+                    <option value="Material Publicitario">Material Publicitario Resguardado</option>
+                </select>
+            </div>
+            <div class="route-indicator" id="route-indicator">
+                <i class="fa-solid fa-arrow-trend-up"></i> Orden Actual: Sótano ➔ Terraza
+            </div>
+        </div>
+
+        <!-- Contenedor Dinámico de Pisos y Checklist -->
+        <section id="floors-container" class="floors-container">
+            <!-- Los pisos se renderizan dinámicamente según el sentido seleccionado (Sube o Baja) -->
+        </section>
+
+        <!-- Sección de Firmas Digitales -->
+        <section class="card signature-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-signature"></i> Conformidad y Firmas Digitales</h2>
+                <span class="badge badge-warning">Obligatorio para PDF</span>
+            </div>
+
+            <div class="signatures-grid">
+                <div class="signature-box">
+                    <label><i class="fa-solid fa-pen-nib"></i> Firma del Inspector de Guardia</label>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas-guard" width="400" height="150"></canvas>
+                    </div>
+                    <button class="btn btn-sm btn-secondary btn-clear-canvas" data-canvas="canvas-guard">
+                        <i class="fa-solid fa-eraser"></i> Limpiar Firma
+                    </button>
+                </div>
+
+                <div class="signature-box">
+                    <label><i class="fa-solid fa-user-check"></i> Firma del Supervisor / Recibido</label>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas-supervisor" width="400" height="150"></canvas>
+                    </div>
+                    <button class="btn btn-sm btn-secondary btn-clear-canvas" data-canvas="canvas-supervisor">
+                        <i class="fa-solid fa-eraser"></i> Limpiar Firma
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal para Agregar Novedades u Observaciones -->
+    <div id="modal-observation" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-item-title"><i class="fa-solid fa-triangle-exclamation"></i> Registrar Novedad / Observación</h3>
+                <button id="modal-close" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-item-id">
+                <div class="form-group">
+                    <label for="modal-severity"><i class="fa-solid fa-triangle-exclamation"></i> Nivel de Severidad de la Novedad</label>
+                    <select id="modal-severity">
+                        <option value="Baja">Baja (Informativo / Menor)</option>
+                        <option value="Media" selected>Media (Requiere atención próxima)</option>
+                        <option value="Alta">Alta / Crítica (Requiere intervención inmediata)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="modal-notes"><i class="fa-solid fa-comment-dots"></i> Descripción Detallada de la Novedad</label>
+                    <textarea id="modal-notes" rows="4" placeholder="Describa el hallazgo, ubicación exacta y acciones tomadas..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel" class="btn btn-secondary">Cancelar</button>
+                <button id="modal-save" class="btn btn-primary">Guardar Observación</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template invisible para el Renderizado de Reporte PDF Printable -->
+    <div id="pdf-template" class="pdf-template hidden">
+        <!-- Se llena dinámicamente antes de exportar a PDF -->
+    </div>
+
+    <script src="app.js"></script>
+    <script src="pdf-generator.js"></script>
+</body>
+</html>
