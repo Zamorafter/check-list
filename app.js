@@ -92,11 +92,7 @@ let appState = {
     buildingName: "Sede Principal - Edificio Operativo",
     direction: "up", // 'up' (Sube) o 'down' (Baja)
     categoryFilter: "all",
-    responses: {}, // { itemId: { status: 'ok'|'issue'|'na', severity: '', notes: '' } }
-    signatures: {
-        guard: null,
-        supervisor: null
-    }
+    responses: {} // { itemId: { status: 'ok'|'issue'|'na', severity: '', notes: '' } }
 };
 
 // Referencias del DOM
@@ -124,15 +120,10 @@ const elModalTitle = document.getElementById("modal-item-title");
 const elModalSeverity = document.getElementById("modal-severity");
 const elModalNotes = document.getElementById("modal-notes");
 
-// Canvases
-const canvasGuard = document.getElementById("canvas-guard");
-const canvasSupervisor = document.getElementById("canvas-supervisor");
-
 // Inicialización al cargar el documento
 document.addEventListener("DOMContentLoaded", () => {
     loadSavedState();
     setupEventListeners();
-    initSignatures();
     renderAll();
 });
 
@@ -142,7 +133,10 @@ function saveState() {
     appState.shiftType = elShiftType.value;
     appState.inspectionDate = elInspectionDate.value;
     appState.buildingName = elBuildingName.value;
-    localStorage.setItem("guard_checklist_state", JSON.stringify(appState));
+    // Eliminar firmas del estado guardado si aún existieran
+    const stateToSave = { ...appState };
+    delete stateToSave.signatures;
+    localStorage.setItem("guard_checklist_state", JSON.stringify(stateToSave));
 }
 
 function loadSavedState() {
@@ -213,17 +207,6 @@ function setupEventListeners() {
     document.getElementById("modal-cancel").addEventListener("click", closeModal);
     document.getElementById("modal-save").addEventListener("click", saveModalObservation);
 
-    // Botón de Limpiar Canvas
-    document.querySelectorAll(".btn-clear-canvas").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const canvasId = e.currentTarget.getAttribute("data-canvas");
-            const targetCanvas = document.getElementById(canvasId);
-            clearCanvas(targetCanvas);
-            if (canvasId === "canvas-guard") appState.signatures.guard = null;
-            if (canvasId === "canvas-supervisor") appState.signatures.supervisor = null;
-            saveState();
-        });
-    });
 }
 
 // Función de Renderizado Principal
@@ -440,68 +423,7 @@ function calculateMetrics() {
     elValNa.textContent = naCount;
 }
 
-// Canvas para Firmas Digitales
-function initSignatures() {
-    setupCanvas(canvasGuard, 'guard');
-    setupCanvas(canvasSupervisor, 'supervisor');
-}
 
-function setupCanvas(canvas, type) {
-    const ctx = canvas.getContext("2d");
-    let isDrawing = false;
-
-    // Configuración de trazo
-    ctx.strokeStyle = "#3b82f6";
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = "round";
-
-    function getPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return {
-            x: clientX - rect.left,
-            y: clientY - rect.top
-        };
-    }
-
-    function startDrawing(e) {
-        isDrawing = true;
-        const pos = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-    }
-
-    function draw(e) {
-        if (!isDrawing) return;
-        e.preventDefault();
-        const pos = getPos(e);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-    }
-
-    function stopDrawing() {
-        if (isDrawing) {
-            isDrawing = false;
-            appState.signatures[type] = canvas.toDataURL();
-            saveState();
-        }
-    }
-
-    canvas.addEventListener("mousedown", startDrawing);
-    canvas.addEventListener("mousemove", draw);
-    canvas.addEventListener("mouseup", stopDrawing);
-    canvas.addEventListener("mouseleave", stopDrawing);
-
-    canvas.addEventListener("touchstart", startDrawing);
-    canvas.addEventListener("touchmove", draw);
-    canvas.addEventListener("touchend", stopDrawing);
-}
-
-function clearCanvas(canvas) {
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
 
 function escapeHtml(str) {
     if (!str) return '';

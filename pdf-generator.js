@@ -185,9 +185,6 @@ function buildPDFHTML() {
         `;
     }
 
-    // Canvas a Imagen para PDF
-    const guardSigImg = appState.signatures.guard ? `<img src="${appState.signatures.guard}" style="max-height: 50px; max-width: 180px;">` : `<span style="color: #94a3b8; font-size: 10px; font-style: italic;">Sin firma digital</span>`;
-    const supervisorSigImg = appState.signatures.supervisor ? `<img src="${appState.signatures.supervisor}" style="max-height: 50px; max-width: 180px;">` : `<span style="color: #94a3b8; font-size: 10px; font-style: italic;">Sin firma digital</span>`;
 
     return `
         <div style="font-family: Arial, sans-serif; color: #0f172a; padding: 10px; background: #ffffff;">
@@ -240,24 +237,6 @@ function buildPDFHTML() {
             <!-- Tablas de Inspección por Pisos -->
             ${floorsHtml}
 
-            <!-- Tabla de Novedades -->
-            ${issuesHtml}
-
-            <!-- Firmas de Conformidad -->
-            <div style="margin-top: 25px; page-break-inside: avoid;">
-                <div style="display: flex; justify-content: space-around; text-align: center; font-size: 10px; margin-top: 15px;">
-                    <div style="width: 40%; border-top: 1px solid #94a3b8; padding-top: 6px;">
-                        ${guardSigImg}<br>
-                        <strong>${escapeHtml(guardName)}</strong><br>
-                        <span>Firma del Inspector de Guardia</span>
-                    </div>
-                    <div style="width: 40%; border-top: 1px solid #94a3b8; padding-top: 6px;">
-                        ${supervisorSigImg}<br>
-                        <strong>Supervisor / Recibido</strong><br>
-                        <span>Firma de Recepción Operativa</span>
-                    </div>
-                </div>
-            </div>
         </div>
     `;
 }
