@@ -237,6 +237,9 @@ function buildPDFHTML() {
             <!-- Tablas de Inspección por Pisos -->
             ${floorsHtml}
 
+            <!-- Tabla de Novedades -->
+            ${issuesHtml}
+
         </div>
     `;
 }

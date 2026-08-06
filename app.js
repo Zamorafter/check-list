@@ -133,10 +133,7 @@ function saveState() {
     appState.shiftType = elShiftType.value;
     appState.inspectionDate = elInspectionDate.value;
     appState.buildingName = elBuildingName.value;
-    // Eliminar firmas del estado guardado si aún existieran
-    const stateToSave = { ...appState };
-    delete stateToSave.signatures;
-    localStorage.setItem("guard_checklist_state", JSON.stringify(stateToSave));
+    localStorage.setItem("guard_checklist_state", JSON.stringify(appState));
 }
 
 function loadSavedState() {
@@ -194,9 +191,6 @@ function setupEventListeners() {
     document.getElementById("btn-reset").addEventListener("click", () => {
         if (confirm("¿Está seguro de reiniciar el checklist? Se borrarán las respuestas actuales.")) {
             appState.responses = {};
-            appState.signatures = { guard: null, supervisor: null };
-            clearCanvas(canvasGuard);
-            clearCanvas(canvasSupervisor);
             saveState();
             renderAll();
         }
