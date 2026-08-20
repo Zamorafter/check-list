@@ -52,7 +52,6 @@ function buildPDFHTML() {
     const shiftType = appState.shiftType || "Fin de Semana";
     const dateStr = appState.inspectionDate ? new Date(appState.inspectionDate).toLocaleString('es-ES') : new Date().toLocaleString('es-ES');
     const building = appState.buildingName || "Sede Principal";
-    const dirText = appState.direction === "up" ? "SUBE (Sótano ➔ Terraza)" : "BAJA (Terraza ➔ Sótano)";
 
     // Métricas
     let totalItems = 0, okCount = 0, issueCount = 0, naCount = 0;
@@ -71,13 +70,9 @@ function buildPDFHTML() {
     const answered = okCount + issueCount + naCount;
     const progressPct = totalItems > 0 ? Math.round((answered / totalItems) * 100) : 0;
 
-    // Ordenar pisos para el PDF en el mismo sentido seleccionado
+    // Ordenar pisos para el PDF en sentido ascendente
     let sortedFloors = [...DEFAULT_FLOORS_DATA];
-    if (appState.direction === "up") {
-        sortedFloors.sort((a, b) => a.order - b.order);
-    } else {
-        sortedFloors.sort((a, b) => b.order - a.order);
-    }
+    sortedFloors.sort((a, b) => a.order - b.order);
 
     // Construcción de tablas de pisos
     let floorsHtml = "";
@@ -99,7 +94,8 @@ function buildPDFHTML() {
                     category: item.category,
                     title: item.title,
                     severity: resp.severity || "Media",
-                    notes: resp.notes || "Sin descripción de novedad."
+                    notes: resp.notes || "Sin descripción de novedad.",
+                    image: resp.image || null
                 });
             } else if (resp.status === "na") {
                 statusBadge = `<span style="color: #64748b; font-weight: bold;">- N/A</span>`;
@@ -111,6 +107,7 @@ function buildPDFHTML() {
                     <td style="padding: 6px 8px; font-size: 11px; color: #334155;">
                         <strong>${escapeHtml(item.title)}</strong><br>
                         <span style="font-size: 9.5px; color: #64748b;">${escapeHtml(item.desc)}</span>
+                        ${resp.image ? `<br><img src="${resp.image}" style="max-width: 120px; max-height: 80px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 3px;" alt="Evidencia">` : ''}
                     </td>
                     <td style="padding: 6px 8px; font-size: 11px; text-align: center;">${statusBadge}</td>
                 </tr>
@@ -152,7 +149,10 @@ function buildPDFHTML() {
                     <td style="padding: 6px 8px; font-size: 10.5px; font-weight: bold;">${escapeHtml(iss.floor)}</td>
                     <td style="padding: 6px 8px; font-size: 10.5px;">${escapeHtml(iss.title)}</td>
                     <td style="padding: 6px 8px; font-size: 10px; text-align: center;"><span style="background: ${color}; color: #fff; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${iss.severity}</span></td>
-                    <td style="padding: 6px 8px; font-size: 10.5px; color: #1e293b;">${escapeHtml(iss.notes)}</td>
+                    <td style="padding: 6px 8px; font-size: 10.5px; color: #1e293b;">
+                        ${escapeHtml(iss.notes)}
+                        ${iss.image ? `<br><img src="${iss.image}" style="max-width: 100px; max-height: 70px; margin-top: 4px; border: 1px solid #fca5a5; border-radius: 3px;" alt="Evidencia">` : ''}
+                    </td>
                 </tr>
             `;
         });
@@ -209,7 +209,6 @@ function buildPDFHTML() {
                 </div>
                 <div>
                     <strong>Fecha / Hora Inicio:</strong> ${escapeHtml(dateStr)}<br>
-                    <strong>Sentido del Recorrido:</strong> <span style="color: #2563eb; font-weight: bold;">${dirText}</span><br>
                     <strong>Cumplimiento:</strong> <span style="color: #10b981; font-weight: bold;">${progressPct}% Completado</span>
                 </div>
             </div>

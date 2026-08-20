@@ -30,11 +30,17 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button id="btn-history" class="btn btn-secondary" title="Ver Historial de Guardias">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                </button>
                 <button id="btn-reset" class="btn btn-secondary" title="Reiniciar Checklist">
                     <i class="fa-solid fa-rotate-left"></i> Reiniciar
                 </button>
+                <button id="btn-save-shift" class="btn btn-success" title="Guardar Guardia Actual">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar
+                </button>
                 <button id="btn-pdf" class="btn btn-primary">
-                    <i class="fa-solid fa-file-pdf"></i> Generar Reporte PDF
+                    <i class="fa-solid fa-file-pdf"></i> Generar PDF
                 </button>
             </div>
         </div>
@@ -69,36 +75,6 @@
                 <div class="form-group">
                     <label for="building-name"><i class="fa-solid fa-building"></i> Sede / Edificio</label>
                     <input type="text" id="building-name" value="Sede Principal - Edificio Operativo">
-                </div>
-            </div>
-
-            <!-- Selector de Dirección de Recorrido (Sube vs Baja) -->
-            <div class="direction-selector-wrapper">
-                <div class="direction-title">
-                    <i class="fa-solid fa-route"></i> Sentido del Recorrido por Pisos:
-                </div>
-                <div class="direction-options">
-                    <label class="direction-card" id="dir-up-label">
-                        <input type="radio" name="direction" value="up" id="dir-up" checked>
-                        <div class="direction-card-content">
-                            <i class="fa-solid fa-arrow-up-short-wide"></i>
-                            <div class="dir-text">
-                                <strong>SUBE (Ascendente)</strong>
-                                <span>Desde Sótano ➔ Terraza/Techo</span>
-                            </div>
-                        </div>
-                    </label>
-
-                    <label class="direction-card" id="dir-down-label">
-                        <input type="radio" name="direction" value="down" id="dir-down">
-                        <div class="direction-card-content">
-                            <i class="fa-solid fa-arrow-down-wide-short"></i>
-                            <div class="dir-text">
-                                <strong>BAJA (Descendente)</strong>
-                                <span>Desde Terraza/Techo ➔ Sótano</span>
-                            </div>
-                        </div>
-                    </label>
                 </div>
             </div>
         </section>
@@ -157,14 +133,11 @@
                     <option value="Material Publicitario">Material Publicitario Resguardado</option>
                 </select>
             </div>
-            <div class="route-indicator" id="route-indicator">
-                <i class="fa-solid fa-arrow-trend-up"></i> Orden Actual: Sótano ➔ Terraza
-            </div>
         </div>
 
         <!-- Contenedor Dinámico de Pisos y Checklist -->
         <section id="floors-container" class="floors-container">
-            <!-- Los pisos se renderizan dinámicamente según el sentido seleccionado (Sube o Baja) -->
+            <!-- Los pisos se renderizan dinámicamente en orden ascendente (Sótano a Terraza) -->
         </section>
 
 
@@ -191,10 +164,62 @@
                     <label for="modal-notes"><i class="fa-solid fa-comment-dots"></i> Descripción Detallada de la Novedad</label>
                     <textarea id="modal-notes" rows="4" placeholder="Describa el hallazgo, ubicación exacta y acciones tomadas..."></textarea>
                 </div>
+                <div class="form-group">
+                    <label for="modal-image"><i class="fa-solid fa-image"></i> Adjuntar Imagen Evidencia (Opcional)</label>
+                    <div class="image-upload-wrapper">
+                        <input type="file" id="modal-image" accept="image/*" style="display: none;">
+                        <label for="modal-image" class="btn btn-secondary btn-file-upload">
+                            <i class="fa-solid fa-upload"></i> Seleccionar Imagen
+                        </label>
+                        <span id="file-upload-name" class="file-name-label">Ninguna imagen seleccionada</span>
+                    </div>
+                    <div id="modal-image-preview-container" class="image-preview-container hidden">
+                        <img id="modal-image-preview" src="" alt="Vista previa">
+                        <button id="btn-remove-image" class="btn btn-danger btn-sm btn-remove-image">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button id="modal-cancel" class="btn btn-secondary">Cancelar</button>
                 <button id="modal-save" class="btn btn-primary">Guardar Observación</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historial Sidebar Drawer -->
+    <div id="history-backdrop" class="history-backdrop"></div>
+    <div id="history-drawer" class="history-drawer">
+        <div class="drawer-header">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Historial de Guardias</h3>
+            <button id="btn-close-history" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-body">
+            <div class="form-group">
+                <label for="history-date-filter"><i class="fa-solid fa-calendar-day"></i> Filtrar por Fecha</label>
+                <div class="date-filter-group" style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="date" id="history-date-filter" style="flex: 1;">
+                    <button id="btn-clear-date-filter" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+                        Ver todos
+                    </button>
+                </div>
+            </div>
+            <div id="history-list-container" class="history-list-container">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver imagen ampliada -->
+    <div id="modal-image-viewer" class="modal-backdrop hidden">
+        <div class="viewer-card">
+            <div class="viewer-header">
+                <h3 id="viewer-title">Evidencia</h3>
+                <button id="btn-close-viewer" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="viewer-body" style="text-align: center; padding: 1rem;">
+                <img id="viewer-img" src="" alt="Imagen ampliada" style="max-width: 100%; max-height: 70vh; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
             </div>
         </div>
     </div>
@@ -204,6 +229,7 @@
         <!-- Se llena dinámicamente antes de exportar a PDF -->
     </div>
 
+    <script src="db.js"></script>
     <script src="app.js"></script>
     <script src="pdf-generator.js"></script>
 </body>

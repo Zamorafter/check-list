@@ -86,13 +86,14 @@ const DEFAULT_FLOORS_DATA = [
 
 // Estado global de la aplicación
 let appState = {
+    currentRecordId: null, // ID de la guardia del historial cargada en pantalla
     guardName: "",
     shiftType: "Fin de Semana - Diurno",
     inspectionDate: new Date().toISOString().slice(0, 16),
     buildingName: "Sede Principal - Edificio Operativo",
-    direction: "up", // 'up' (Sube) o 'down' (Baja)
+    direction: "up",
     categoryFilter: "all",
-    responses: {} // { itemId: { status: 'ok'|'issue'|'na', severity: '', notes: '' } }
+    responses: {} // { itemId: { status: 'ok'|'issue'|'na', severity: '', notes: '', image: '' } }
 };
 
 // Referencias del DOM
@@ -100,11 +101,34 @@ const elGuardName = document.getElementById("guard-name");
 const elShiftType = document.getElementById("shift-type");
 const elInspectionDate = document.getElementById("inspection-date");
 const elBuildingName = document.getElementById("building-name");
-const elDirUp = document.getElementById("dir-up");
-const elDirDown = document.getElementById("dir-down");
 const elCategoryFilter = document.getElementById("category-filter");
 const elFloorsContainer = document.getElementById("floors-container");
-const elRouteIndicator = document.getElementById("route-indicator");
+
+// Nuevas referencias para imágenes
+const elModalImage = document.getElementById("modal-image");
+const elFileUploadName = document.getElementById("file-upload-name");
+const elImagePreviewContainer = document.getElementById("modal-image-preview-container");
+const elImagePreview = document.getElementById("modal-image-preview");
+const elBtnRemoveImage = document.getElementById("btn-remove-image");
+
+// Nuevas referencias para Historial
+const elBtnHistory = document.getElementById("btn-history");
+const elBtnSaveShift = document.getElementById("btn-save-shift");
+const elHistoryBackdrop = document.getElementById("history-backdrop");
+const elHistoryDrawer = document.getElementById("history-drawer");
+const elBtnCloseHistory = document.getElementById("btn-close-history");
+const elHistoryDateFilter = document.getElementById("history-date-filter");
+const elBtnClearDateFilter = document.getElementById("btn-clear-date-filter");
+const elHistoryListContainer = document.getElementById("history-list-container");
+
+// Nuevas referencias para Visor de Imagen Ampliada
+const elModalImageViewer = document.getElementById("modal-image-viewer");
+const elViewerTitle = document.getElementById("viewer-title");
+const elViewerImg = document.getElementById("viewer-img");
+const elBtnCloseViewer = document.getElementById("btn-close-viewer");
+
+// Variable temporal para Base64 de imagen adjuntada en modal
+let tempAttachedImageBase64 = null;
 
 // Métricas DOM
 const elValProgress = document.getElementById("val-progress");
@@ -153,11 +177,8 @@ function loadSavedState() {
     elInspectionDate.value = appState.inspectionDate || new Date().toISOString().slice(0, 16);
     elBuildingName.value = appState.buildingName || "Sede Principal - Edificio Operativo";
     
-    if (appState.direction === "down") {
-        elDirDown.checked = true;
-    } else {
-        elDirUp.checked = true;
-    }
+    // Asegurar sentido ascendente por defecto
+    appState.direction = "up";
 }
 
 // Configurar Escuchadores de Eventos
@@ -167,19 +188,6 @@ function setupEventListeners() {
     elShiftType.addEventListener("change", saveState);
     elInspectionDate.addEventListener("change", saveState);
     elBuildingName.addEventListener("input", saveState);
-
-    // Dirección (Sube vs Baja)
-    elDirUp.addEventListener("change", () => {
-        appState.direction = "up";
-        saveState();
-        renderAll();
-    });
-
-    elDirDown.addEventListener("change", () => {
-        appState.direction = "down";
-        saveState();
-        renderAll();
-    });
 
     // Filtro por categoría
     elCategoryFilter.addEventListener("change", (e) => {
@@ -191,6 +199,7 @@ function setupEventListeners() {
     document.getElementById("btn-reset").addEventListener("click", () => {
         if (confirm("¿Está seguro de reiniciar el checklist? Se borrarán las respuestas actuales.")) {
             appState.responses = {};
+            appState.currentRecordId = null;
             saveState();
             renderAll();
         }
@@ -201,34 +210,327 @@ function setupEventListeners() {
     document.getElementById("modal-cancel").addEventListener("click", closeModal);
     document.getElementById("modal-save").addEventListener("click", saveModalObservation);
 
+    // ========== IMAGE UPLOAD ==========
+    if (elModalImage) {
+        elModalImage.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith("image/")) {
+                alert("Por favor seleccione un archivo de imagen válido.");
+                elModalImage.value = "";
+                return;
+            }
+            // Limit to 5 MB
+            if (file.size > 5 * 1024 * 1024) {
+                alert("La imagen es demasiado grande. El límite es 5 MB.");
+                elModalImage.value = "";
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                tempAttachedImageBase64 = ev.target.result;
+                if (elFileUploadName) elFileUploadName.textContent = file.name;
+                if (elImagePreview) elImagePreview.src = tempAttachedImageBase64;
+                if (elImagePreviewContainer) elImagePreviewContainer.classList.remove("hidden");
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (elBtnRemoveImage) {
+        elBtnRemoveImage.addEventListener("click", () => {
+            tempAttachedImageBase64 = null;
+            if (elModalImage) elModalImage.value = "";
+            if (elFileUploadName) elFileUploadName.textContent = "Ninguna imagen seleccionada";
+            if (elImagePreview) elImagePreview.src = "";
+            if (elImagePreviewContainer) elImagePreviewContainer.classList.add("hidden");
+        });
+    }
+
+    // ========== HISTORY DRAWER ==========
+    if (elBtnHistory) {
+        elBtnHistory.addEventListener("click", () => {
+            openHistoryDrawer();
+        });
+    }
+
+    if (elBtnCloseHistory) {
+        elBtnCloseHistory.addEventListener("click", closeHistoryDrawer);
+    }
+
+    if (elHistoryBackdrop) {
+        elHistoryBackdrop.addEventListener("click", closeHistoryDrawer);
+    }
+
+    if (elHistoryDateFilter) {
+        elHistoryDateFilter.addEventListener("change", () => {
+            renderHistoryList();
+        });
+    }
+
+    if (elBtnClearDateFilter) {
+        elBtnClearDateFilter.addEventListener("click", () => {
+            if (elHistoryDateFilter) elHistoryDateFilter.value = "";
+            renderHistoryList();
+        });
+    }
+
+    // ========== SAVE SHIFT ==========
+    if (elBtnSaveShift) {
+        elBtnSaveShift.addEventListener("click", saveCurrentShift);
+    }
+
+    // ========== IMAGE VIEWER MODAL ==========
+    if (elBtnCloseViewer) {
+        elBtnCloseViewer.addEventListener("click", () => {
+            if (elModalImageViewer) elModalImageViewer.classList.add("hidden");
+        });
+    }
+
+    // Close image viewer when clicking on backdrop
+    if (elModalImageViewer) {
+        elModalImageViewer.addEventListener("click", (e) => {
+            if (e.target === elModalImageViewer) {
+                elModalImageViewer.classList.add("hidden");
+            }
+        });
+    }
+}
+
+// ========== HISTORY DRAWER FUNCTIONS ==========
+function openHistoryDrawer() {
+    if (elHistoryBackdrop) elHistoryBackdrop.classList.add("open");
+    if (elHistoryDrawer) elHistoryDrawer.classList.add("open");
+    renderHistoryList();
+}
+
+function closeHistoryDrawer() {
+    if (elHistoryBackdrop) elHistoryBackdrop.classList.remove("open");
+    if (elHistoryDrawer) elHistoryDrawer.classList.remove("open");
+}
+
+async function renderHistoryList() {
+    if (!elHistoryListContainer) return;
+    elHistoryListContainer.innerHTML = '<p class="no-history-msg"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</p>';
+
+    try {
+        await initDB();
+        let records = await getAllGuardRecords();
+
+        // Sort by date, most recent first
+        records.sort((a, b) => {
+            const da = new Date(a.inspectionDate || 0);
+            const db = new Date(b.inspectionDate || 0);
+            return db - da;
+        });
+
+        // Apply date filter
+        const filterDate = elHistoryDateFilter ? elHistoryDateFilter.value : "";
+        if (filterDate) {
+            records = records.filter(r => {
+                if (!r.inspectionDate) return false;
+                const recordDate = r.inspectionDate.substring(0, 10);
+                return recordDate === filterDate;
+            });
+        }
+
+        if (records.length === 0) {
+            elHistoryListContainer.innerHTML = `
+                <div class="no-history-msg">
+                    <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                    ${filterDate ? "No hay registros para la fecha seleccionada." : "No hay guardias guardadas aún."}
+                </div>
+            `;
+            return;
+        }
+
+        elHistoryListContainer.innerHTML = "";
+
+        records.forEach(record => {
+            const card = document.createElement("div");
+            card.className = "history-item-card";
+
+            // Calculate progress for this record
+            let total = 0, answered = 0;
+            DEFAULT_FLOORS_DATA.forEach(floor => {
+                floor.items.forEach(item => {
+                    total++;
+                    const resp = record.responses ? record.responses[item.id] : null;
+                    if (resp && resp.status) answered++;
+                });
+            });
+            const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
+
+            const dateDisplay = record.inspectionDate
+                ? new Date(record.inspectionDate).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" })
+                : "Sin fecha";
+
+            card.innerHTML = `
+                <div class="history-card-header">
+                    <div class="history-card-title">${escapeHtml(record.guardName || "Sin nombre")}</div>
+                </div>
+                <div class="history-card-meta">
+                    <span><i class="fa-solid fa-calendar-day"></i> ${dateDisplay}</span>
+                    <span><i class="fa-solid fa-business-time"></i> ${escapeHtml(record.shiftType || "N/D")}</span>
+                </div>
+                <div class="history-card-progress">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Progreso: ${pct}% (${answered}/${total})</span>
+                    <div class="mini-progress-bar-container">
+                        <div class="mini-progress-bar-fill" style="width: ${pct}%;"></div>
+                    </div>
+                </div>
+                <div class="history-card-footer">
+                    <button class="btn btn-sm btn-primary btn-load-record" data-id="${record.id}">
+                        <i class="fa-solid fa-upload"></i> Cargar
+                    </button>
+                    <button class="btn btn-sm btn-danger btn-delete-record" data-id="${record.id}">
+                        <i class="fa-solid fa-trash"></i> Eliminar
+                    </button>
+                </div>
+            `;
+
+            // Load button
+            card.querySelector(".btn-load-record").addEventListener("click", () => {
+                loadHistoryRecord(record.id);
+            });
+
+            // Delete button
+            card.querySelector(".btn-delete-record").addEventListener("click", () => {
+                deleteHistoryRecord(record.id);
+            });
+
+            elHistoryListContainer.appendChild(card);
+        });
+    } catch (err) {
+        console.error("Error loading history:", err);
+        elHistoryListContainer.innerHTML = '<p class="no-history-msg">Error al cargar el historial.</p>';
+    }
+}
+
+// ========== SAVE CURRENT SHIFT ==========
+async function saveCurrentShift() {
+    // Sync current input values to appState before saving
+    saveState();
+
+    const guardName = appState.guardName;
+    if (!guardName) {
+        alert("Por favor ingrese el nombre del Inspector / Guardia antes de guardar.");
+        elGuardName.focus();
+        return;
+    }
+
+    const recordId = appState.currentRecordId || `shift-${Date.now()}`;
+
+    const record = {
+        id: recordId,
+        guardName: appState.guardName,
+        shiftType: appState.shiftType,
+        inspectionDate: appState.inspectionDate,
+        buildingName: appState.buildingName,
+        responses: JSON.parse(JSON.stringify(appState.responses)), // Deep clone
+        savedAt: new Date().toISOString()
+    };
+
+    try {
+        await initDB();
+        await saveGuardRecord(record);
+        appState.currentRecordId = recordId;
+        saveState();
+
+        // Visual feedback
+        const btn = elBtnSaveShift;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> ¡Guardado!';
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }, 2000);
+    } catch (err) {
+        console.error("Error saving shift:", err);
+        alert("Error al guardar la guardia. Intente nuevamente.");
+    }
+}
+
+// ========== LOAD HISTORY RECORD ==========
+async function loadHistoryRecord(id) {
+    try {
+        await initDB();
+        const record = await getGuardRecord(id);
+        if (!record) {
+            alert("No se encontró el registro.");
+            return;
+        }
+
+        if (!confirm("¿Desea cargar esta guardia? Se reemplazarán los datos actuales.")) {
+            return;
+        }
+
+        // Replace appState with record data
+        appState.guardName = record.guardName || "";
+        appState.shiftType = record.shiftType || "Fin de Semana - Diurno";
+        appState.inspectionDate = record.inspectionDate || new Date().toISOString().slice(0, 16);
+        appState.buildingName = record.buildingName || "Sede Principal - Edificio Operativo";
+        appState.responses = record.responses || {};
+        appState.currentRecordId = record.id;
+
+        // Update UI inputs
+        elGuardName.value = appState.guardName;
+        elShiftType.value = appState.shiftType;
+        elInspectionDate.value = appState.inspectionDate;
+        elBuildingName.value = appState.buildingName;
+
+        saveState();
+        renderAll();
+        closeHistoryDrawer();
+    } catch (err) {
+        console.error("Error loading record:", err);
+        alert("Error al cargar el registro.");
+    }
+}
+
+// ========== DELETE HISTORY RECORD ==========
+async function deleteHistoryRecord(id) {
+    if (!confirm("¿Está seguro de eliminar este registro del historial?")) return;
+
+    try {
+        await initDB();
+        await deleteGuardRecord(id);
+
+        // If the deleted record is the currently loaded one, clear the reference
+        if (appState.currentRecordId === id) {
+            appState.currentRecordId = null;
+            saveState();
+        }
+
+        renderHistoryList();
+    } catch (err) {
+        console.error("Error deleting record:", err);
+        alert("Error al eliminar el registro.");
+    }
+}
+
+// ========== IMAGE VIEWER ==========
+function openImageViewer(base64Src, title) {
+    if (!elModalImageViewer || !elViewerImg) return;
+    elViewerImg.src = base64Src;
+    if (elViewerTitle) elViewerTitle.textContent = title || "Evidencia";
+    elModalImageViewer.classList.remove("hidden");
 }
 
 // Función de Renderizado Principal
 function renderAll() {
-    updateRouteIndicator();
     renderFloors();
     calculateMetrics();
-}
-
-function updateRouteIndicator() {
-    if (appState.direction === "up") {
-        elRouteIndicator.innerHTML = `<i class="fa-solid fa-arrow-trend-up"></i> Sentido: <strong>SUBE</strong> (Sótano ➔ Terraza)`;
-    } else {
-        elRouteIndicator.innerHTML = `<i class="fa-solid fa-arrow-trend-down"></i> Sentido: <strong>BAJA</strong> (Terraza ➔ Sótano)`;
-    }
 }
 
 // Renderizar Pisos según Dirección Elegida
 function renderFloors() {
     elFloorsContainer.innerHTML = "";
 
-    // Clonar y ordenar pisos según 'up' o 'down'
+    // Clonar y ordenar pisos de manera ascendente (Sótano a Terraza)
     let sortedFloors = [...DEFAULT_FLOORS_DATA];
-    if (appState.direction === "up") {
-        sortedFloors.sort((a, b) => a.order - b.order);
-    } else {
-        sortedFloors.sort((a, b) => b.order - a.order);
-    }
+    sortedFloors.sort((a, b) => a.order - b.order);
 
     const currentFilter = appState.categoryFilter;
 
@@ -271,7 +573,7 @@ function renderFloors() {
         tasksList.className = "task-items-list";
 
         visibleItems.forEach(item => {
-            const response = appState.responses[item.id] || { status: null, severity: "", notes: "" };
+            const response = appState.responses[item.id] || { status: null, severity: "", notes: "", image: null };
             const taskEl = document.createElement("div");
             taskEl.className = "task-item";
             taskEl.id = `item-${item.id}`;
@@ -282,11 +584,24 @@ function renderFloors() {
 
             let observationHtml = "";
             if (response.status === "issue" && response.notes) {
+                // Build image thumbnail if image exists
+                let imageThumbnailHtml = "";
+                if (response.image) {
+                    imageThumbnailHtml = `
+                        <div class="task-image-preview-container">
+                            <img class="task-image-preview" src="${response.image}" alt="Evidencia" data-item-id="${item.id}">
+                        </div>
+                    `;
+                }
+
                 observationHtml = `
                     <div class="observation-box">
-                        <div class="obs-content">
-                            <strong><i class="fa-solid fa-triangle-exclamation"></i> Novedad (${response.severity || 'Media'}):</strong>
-                            <p>${escapeHtml(response.notes)}</p>
+                        <div class="obs-content-wrapper">
+                            ${imageThumbnailHtml}
+                            <div class="obs-content">
+                                <strong><i class="fa-solid fa-triangle-exclamation"></i> Novedad (${response.severity || 'Media'}):</strong>
+                                <p>${escapeHtml(response.notes)}</p>
+                            </div>
                         </div>
                         <button class="btn btn-sm btn-secondary" onclick="openObservationModal('${item.id}', '${escapeHtml(item.title)}')">
                             <i class="fa-solid fa-pen"></i> Editar
@@ -317,7 +632,16 @@ function renderFloors() {
                 ${observationHtml}
             `;
 
+            // Add click listeners for image thumbnails after inserting into DOM
             tasksList.appendChild(taskEl);
+
+            // Attach image viewer click event
+            const imgThumb = taskEl.querySelector(".task-image-preview");
+            if (imgThumb) {
+                imgThumb.addEventListener("click", () => {
+                    openImageViewer(response.image, item.title);
+                });
+            }
         });
 
         floorBody.appendChild(tasksList);
@@ -341,7 +665,7 @@ function getFloorProgressText(floor) {
 // Manejo de Estados de Ítems
 function setStatus(itemId, status) {
     if (!appState.responses[itemId]) {
-        appState.responses[itemId] = { status: null, severity: "", notes: "" };
+        appState.responses[itemId] = { status: null, severity: "", notes: "", image: null };
     }
 
     if (appState.responses[itemId].status === status) {
@@ -368,6 +692,19 @@ function openObservationModal(itemId, title) {
     const resp = appState.responses[itemId] || {};
     elModalSeverity.value = resp.severity || "Media";
     elModalNotes.value = resp.notes || "";
+
+    // Restore image state for this item
+    tempAttachedImageBase64 = resp.image || null;
+    if (tempAttachedImageBase64) {
+        if (elImagePreview) elImagePreview.src = tempAttachedImageBase64;
+        if (elImagePreviewContainer) elImagePreviewContainer.classList.remove("hidden");
+        if (elFileUploadName) elFileUploadName.textContent = "Imagen adjunta";
+    } else {
+        if (elImagePreview) elImagePreview.src = "";
+        if (elImagePreviewContainer) elImagePreviewContainer.classList.add("hidden");
+        if (elFileUploadName) elFileUploadName.textContent = "Ninguna imagen seleccionada";
+    }
+    if (elModalImage) elModalImage.value = "";
     
     elModal.classList.remove("hidden");
     elModalNotes.focus();
@@ -375,6 +712,11 @@ function openObservationModal(itemId, title) {
 
 function closeModal() {
     elModal.classList.add("hidden");
+    tempAttachedImageBase64 = null;
+    if (elModalImage) elModalImage.value = "";
+    if (elFileUploadName) elFileUploadName.textContent = "Ninguna imagen seleccionada";
+    if (elImagePreview) elImagePreview.src = "";
+    if (elImagePreviewContainer) elImagePreviewContainer.classList.add("hidden");
 }
 
 function saveModalObservation() {
@@ -382,9 +724,11 @@ function saveModalObservation() {
     if (itemId && appState.responses[itemId]) {
         appState.responses[itemId].severity = elModalSeverity.value;
         appState.responses[itemId].notes = elModalNotes.value;
+        appState.responses[itemId].image = tempAttachedImageBase64 || null;
         saveState();
         renderAll();
     }
+    tempAttachedImageBase64 = null;
     closeModal();
 }
 
