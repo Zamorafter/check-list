@@ -103,7 +103,9 @@ function buildPDFHTML() {
 
             // Construir detalle del valor o notas si existen
             let detailContentHtml = "";
-            if (item.type === "value_input" && resp.value) {
+            if (item.type === "asistencia_counter" && resp.count !== undefined && resp.count !== null && resp.count !== "") {
+                detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Personas Presentes:</strong> ${resp.count}</div>`;
+            } else if (item.type === "value_input" && resp.value) {
                 detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Valor Registrado:</strong> ${escapeHtml(resp.value)}</div>`;
             } else if (item.type === "dual_value" && (resp.val1 || resp.val2)) {
                 detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Suministro:</strong> ${escapeHtml(resp.val1 || 'N/D')} | <strong>Retorno:</strong> ${escapeHtml(resp.val2 || 'N/D')}</div>`;
