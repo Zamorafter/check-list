@@ -104,7 +104,8 @@ function buildPDFHTML() {
             // Construir detalle del valor o notas si existen
             let detailContentHtml = "";
             if (item.type === "asistencia_counter" && resp.count !== undefined && resp.count !== null && resp.count !== "") {
-                detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Personas Presentes:</strong> ${resp.count}</div>`;
+                const labelText = item.counterLabel || "Personas Presentes";
+                detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>${escapeHtml(labelText)}:</strong> ${resp.count}</div>`;
             } else if (item.type === "value_input" && resp.value) {
                 detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Valor Registrado:</strong> ${escapeHtml(resp.value)}</div>`;
             } else if (item.type === "dual_value" && (resp.val1 || resp.val2)) {

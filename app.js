@@ -17,7 +17,7 @@ const DEFAULT_SECTIONS_DATA = [
             { id: "asist-jdml", category: "Asistencias", type: "asistencia_counter", issueOnly: true, title: "Contratistas / Aliados - JDML", desc: "Verificar cantidad de personas del personal de la contratista JDML." },
             { id: "asist-dl", category: "Asistencias", type: "asistencia_counter", issueOnly: true, title: "Contratistas / Aliados - DL", desc: "Verificar cantidad de personas del personal de la contratista DL." },
             { id: "asist-ferremantenimiento", category: "Asistencias", type: "asistencia_counter", issueOnly: true, title: "Contratistas / Aliados - FERREMANTENIMIENTO", desc: "Verificar cantidad de personas en trabajos de Ferremantenimiento." },
-            { id: "asist-aliados-comerciales", category: "Asistencias", type: "asistencia_counter", issueOnly: true, title: "Aliados Comerciales (Asistencia & Horario)", desc: "Verificar cantidad de aliados comerciales y cumplimiento de horario." }
+            { id: "asist-aliados-comerciales", category: "Asistencias", type: "asistencia_counter", counterLabel: "Cantidad de Locales", issueOnly: true, title: "Aliados Comerciales (Asistencia & Horario)", desc: "Verificar cantidad de aliados comerciales y cumplimiento de horario." }
         ]
     },
     {
@@ -787,10 +787,12 @@ function renderFloors() {
             let customControlsHtml = "";
 
             if (item.type === "asistencia_counter") {
+                const labelText = item.counterLabel || "Cantidad de Personas Presentes";
+                const iconClass = item.counterLabel ? "fa-store" : "fa-users";
                 customControlsHtml = `
                     <div class="task-custom-controls">
                         <div class="custom-input-group">
-                            <label><i class="fa-solid fa-users"></i> Cantidad de Personas Presentes:</label>
+                            <label><i class="fa-solid ${iconClass}"></i> ${labelText}:</label>
                             <input type="number" 
                                    min="0" 
                                    class="task-inline-input" 
