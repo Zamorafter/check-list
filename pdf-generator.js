@@ -1,6 +1,6 @@
 /**
- * Generador de Reporte PDF para el Checklist de Inspección de Guardia
- * Utiliza html2pdf.js / jsPDF para exportar un documento PDF ejecutivo.
+ * Generador de Reporte PDF para el Checklist de Inspección de Guardia Operativa
+ * Exporta un acta corporativa estructurada por departamentos con asistencias, métricas y evidencias.
  */
 
 document.getElementById("btn-pdf").addEventListener("click", generatePDFReport);
@@ -49,48 +49,48 @@ function generatePDFReport() {
 
 function buildPDFHTML() {
     const guardName = appState.guardName || "Sin registrar";
-    const shiftType = appState.shiftType || "Fin de Semana";
+    const shiftTimeSlot = appState.shiftTimeSlot || "10:00 AM";
     const dateStr = appState.inspectionDate ? new Date(appState.inspectionDate).toLocaleString('es-ES') : new Date().toLocaleString('es-ES');
     const building = appState.buildingName || "Sede Principal";
+    const lightingStatus = appState.lightingStatus || "N/A";
+    const commercialHoursStatus = appState.commercialHoursStatus || "N/A";
 
-    // Métricas
-    let totalItems = 0, okCount = 0, issueCount = 0, naCount = 0;
-    DEFAULT_FLOORS_DATA.forEach(floor => {
-        floor.items.forEach(item => {
+    // Métricas globales
+    let totalItems = 0, okCount = 0, issueCount = 0, naCount = 0, answered = 0;
+    DEFAULT_SECTIONS_DATA.forEach(section => {
+        section.items.forEach(item => {
             totalItems++;
             const resp = appState.responses[item.id];
             if (resp) {
                 if (resp.status === "ok") okCount++;
                 if (resp.status === "issue") issueCount++;
                 if (resp.status === "na") naCount++;
+                if (resp.status || resp.value || resp.notes || (resp.photos && resp.photos.length > 0)) answered++;
             }
         });
     });
 
-    const answered = okCount + issueCount + naCount;
     const progressPct = totalItems > 0 ? Math.round((answered / totalItems) * 100) : 0;
 
-    // Ordenar pisos para el PDF en sentido ascendente
-    let sortedFloors = [...DEFAULT_FLOORS_DATA];
-    sortedFloors.sort((a, b) => a.order - b.order);
+    let sortedSections = [...DEFAULT_SECTIONS_DATA];
+    sortedSections.sort((a, b) => a.order - b.order);
 
-    // Construcción de tablas de pisos
-    let floorsHtml = "";
+    let sectionsHtml = "";
     let issuesList = [];
 
-    sortedFloors.forEach(floor => {
+    sortedSections.forEach(section => {
         let rowsHtml = "";
 
-        floor.items.forEach(item => {
-            const resp = appState.responses[item.id] || { status: "Pendiente", severity: "", notes: "" };
+        section.items.forEach(item => {
+            const resp = appState.responses[item.id] || {};
             let statusBadge = `<span style="color: #64748b; font-weight: bold;">[ Pendiente ]</span>`;
 
             if (resp.status === "ok") {
-                statusBadge = `<span style="color: #10b981; font-weight: bold;">✔ CONFORME</span>`;
+                statusBadge = `<span style="color: #10b981; font-weight: bold;">✔ CONFORME / OPERATIVO</span>`;
             } else if (resp.status === "issue") {
                 statusBadge = `<span style="color: #ef4444; font-weight: bold;">⚠ NOVEDAD</span>`;
                 issuesList.push({
-                    floor: floor.name,
+                    section: section.name,
                     category: item.category,
                     title: item.title,
                     severity: resp.severity || "Media",
@@ -101,29 +101,60 @@ function buildPDFHTML() {
                 statusBadge = `<span style="color: #64748b; font-weight: bold;">- N/A</span>`;
             }
 
+            // Construir detalle del valor o notas si existen
+            let detailContentHtml = "";
+            if (item.type === "value_input" && resp.value) {
+                detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Valor Registrado:</strong> ${escapeHtml(resp.value)}</div>`;
+            } else if (item.type === "dual_value" && (resp.val1 || resp.val2)) {
+                detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Suministro:</strong> ${escapeHtml(resp.val1 || 'N/D')} | <strong>Retorno:</strong> ${escapeHtml(resp.val2 || 'N/D')}</div>`;
+            } else if (item.type === "status_counter" && resp.count !== undefined) {
+                detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b;"><strong>Equipos Disponibles:</strong> ${resp.count} de ${item.max || 10}</div>`;
+            } else if (item.type === "text_notes_photo" && resp.notes) {
+                detailContentHtml = `<div style="margin-top: 3px; font-size: 10.5px; color: #1e293b; white-space: pre-wrap;">${escapeHtml(resp.notes)}</div>`;
+            }
+
+            // Si hay imagen adjunta en la respuesta
+            let imageHtml = "";
+            if (resp.image) {
+                imageHtml = `<br><img src="${resp.image}" style="max-width: 120px; max-height: 80px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 3px;" alt="Evidencia">`;
+            }
+
+            // Si es la sección de fotos generales
+            if (item.type === "general_photos_gallery") {
+                if (appState.generalPhotos && appState.generalPhotos.length > 0) {
+                    let photoThumbs = appState.generalPhotos.map(p => `
+                        <img src="${p}" style="width: 110px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #cbd5e1;" alt="Foto General">
+                    `).join("");
+                    detailContentHtml = `<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">${photoThumbs}</div>`;
+                } else {
+                    detailContentHtml = `<span style="font-size: 10px; color: #94a3b8;">Sin fotos generales adjuntas.</span>`;
+                }
+            }
+
             rowsHtml += `
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 6px 8px; font-size: 11px; font-weight: bold; color: #1e293b;">${escapeHtml(item.category)}</td>
-                    <td style="padding: 6px 8px; font-size: 11px; color: #334155;">
+                    <td style="padding: 6px 8px; font-size: 11px; font-weight: bold; color: #1e293b; width: 25%;">${escapeHtml(item.category)}</td>
+                    <td style="padding: 6px 8px; font-size: 11px; color: #334155; width: 55%;">
                         <strong>${escapeHtml(item.title)}</strong><br>
                         <span style="font-size: 9.5px; color: #64748b;">${escapeHtml(item.desc)}</span>
-                        ${resp.image ? `<br><img src="${resp.image}" style="max-width: 120px; max-height: 80px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 3px;" alt="Evidencia">` : ''}
+                        ${detailContentHtml}
+                        ${imageHtml}
                     </td>
-                    <td style="padding: 6px 8px; font-size: 11px; text-align: center;">${statusBadge}</td>
+                    <td style="padding: 6px 8px; font-size: 11px; text-align: center; width: 20%;">${statusBadge}</td>
                 </tr>
             `;
         });
 
-        floorsHtml += `
+        sectionsHtml += `
             <div style="margin-bottom: 15px; page-break-inside: avoid;">
                 <div style="background: #1e293b; color: #ffffff; padding: 6px 10px; font-size: 12px; font-weight: bold; border-radius: 4px 4px 0 0;">
-                    📍 ${escapeHtml(floor.name)} (${floor.badge})
+                    📍 ${escapeHtml(section.name)}
                 </div>
                 <table style="width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; color: #475569; text-transform: uppercase;">
-                            <th style="padding: 5px 8px; text-align: left; width: 25%;">Categoría</th>
-                            <th style="padding: 5px 8px; text-align: left; width: 55%;">Punto de Control</th>
+                            <th style="padding: 5px 8px; text-align: left; width: 25%;">Departamento</th>
+                            <th style="padding: 5px 8px; text-align: left; width: 55%;">Punto de Control / Lectura</th>
                             <th style="padding: 5px 8px; text-align: center; width: 20%;">Estado</th>
                         </tr>
                     </thead>
@@ -146,7 +177,7 @@ function buildPDFHTML() {
 
             issueRows += `
                 <tr style="border-bottom: 1px solid #fee2e2;">
-                    <td style="padding: 6px 8px; font-size: 10.5px; font-weight: bold;">${escapeHtml(iss.floor)}</td>
+                    <td style="padding: 6px 8px; font-size: 10.5px; font-weight: bold;">${escapeHtml(iss.section)}</td>
                     <td style="padding: 6px 8px; font-size: 10.5px;">${escapeHtml(iss.title)}</td>
                     <td style="padding: 6px 8px; font-size: 10px; text-align: center;"><span style="background: ${color}; color: #fff; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${iss.severity}</span></td>
                     <td style="padding: 6px 8px; font-size: 10.5px; color: #1e293b;">
@@ -165,10 +196,10 @@ function buildPDFHTML() {
                 <table style="width: 100%; border-collapse: collapse; background: #fff5f5; border: 1px solid #fca5a5;">
                     <thead>
                         <tr style="background: #fee2e2; border-bottom: 1px solid #fca5a5; font-size: 10px; color: #991b1b; text-transform: uppercase;">
-                            <th style="padding: 5px 8px; text-align: left; width: 20%;">Ubicación</th>
-                            <th style="padding: 5px 8px; text-align: left; width: 30%;">Punto afectado</th>
+                            <th style="padding: 5px 8px; text-align: left; width: 25%;">Sección</th>
+                            <th style="padding: 5px 8px; text-align: left; width: 30%;">Punto Afectado</th>
                             <th style="padding: 5px 8px; text-align: center; width: 15%;">Prioridad</th>
-                            <th style="padding: 5px 8px; text-align: left; width: 35%;">Observación</th>
+                            <th style="padding: 5px 8px; text-align: left; width: 30%;">Observación</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -180,11 +211,10 @@ function buildPDFHTML() {
     } else {
         issuesHtml = `
             <div style="margin-top: 15px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; color: #166534; font-size: 11px; text-align: center; font-weight: bold;">
-                ✔ No se registraron novedades ni anomalías durante el recorrido de esta guardia.
+                ✔ No se registraron novedades ni anomalías críticas durante este recorrido.
             </div>
         `;
     }
-
 
     return `
         <div style="font-family: Arial, sans-serif; color: #0f172a; padding: 10px; background: #ffffff;">
@@ -192,7 +222,7 @@ function buildPDFHTML() {
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e293b; padding-bottom: 10px; margin-bottom: 15px;">
                 <div>
                     <h1 style="font-size: 18px; margin: 0; color: #0f172a; text-transform: uppercase;">ACTA DE INSPECCIÓN OPERATIVA DE GUARDIA</h1>
-                    <p style="font-size: 11px; margin: 2px 0 0 0; color: #475569;">Fines de semana & Días Feriados | Departamento de Operaciones</p>
+                    <p style="font-size: 11px; margin: 2px 0 0 0; color: #475569;">Control de Servicios & Operaciones | Mall / Edificio Principal</p>
                 </div>
                 <div style="text-align: right; font-size: 10px; color: #64748b;">
                     <strong>Documento Oficial</strong><br>
@@ -201,15 +231,27 @@ function buildPDFHTML() {
             </div>
 
             <!-- Metadatos de la Inspección -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 11px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 11px;">
                 <div>
                     <strong>Inspector de Guardia:</strong> ${escapeHtml(guardName)}<br>
-                    <strong>Tipo de Turno:</strong> ${escapeHtml(shiftType)}<br>
+                    <strong>Horario de Recorrido:</strong> <span style="color: #0284c7; font-weight: bold;">${escapeHtml(shiftTimeSlot)}</span><br>
                     <strong>Sede / Edificio:</strong> ${escapeHtml(building)}
                 </div>
                 <div>
-                    <strong>Fecha / Hora Inicio:</strong> ${escapeHtml(dateStr)}<br>
-                    <strong>Cumplimiento:</strong> <span style="color: #10b981; font-weight: bold;">${progressPct}% Completado</span>
+                    <strong>Fecha / Hora:</strong> ${escapeHtml(dateStr)}<br>
+                    <strong>Cumplimiento de Recorrido:</strong> <span style="color: #10b981; font-weight: bold;">${progressPct}% Completado</span>
+                </div>
+            </div>
+
+            <!-- Evaluaciones de Control General (Iluminación & Horario Comercial) -->
+            <div style="display: flex; gap: 10px; background: #eff6ff; border: 1px solid #bfdbfe; padding: 8px 10px; border-radius: 4px; margin-bottom: 15px; font-size: 10.5px;">
+                <div style="flex: 1;">
+                    <strong>Iluminación Perimetral/Interna:</strong> 
+                    <span style="font-weight: bold; color: ${lightingStatus === 'Cumplió' ? '#166534' : '#991b1b'};">${escapeHtml(lightingStatus)}</span>
+                </div>
+                <div style="flex: 1;">
+                    <strong>Aliados Comerciales (Horario):</strong> 
+                    <span style="font-weight: bold; color: ${commercialHoursStatus === 'Cumplieron' ? '#166534' : '#991b1b'};">${escapeHtml(commercialHoursStatus)}</span>
                 </div>
             </div>
 
@@ -233,8 +275,8 @@ function buildPDFHTML() {
                 </div>
             </div>
 
-            <!-- Tablas de Inspección por Pisos -->
-            ${floorsHtml}
+            <!-- Tablas de Inspección por Departamentos -->
+            ${sectionsHtml}
 
             <!-- Tabla de Novedades -->
             ${issuesHtml}

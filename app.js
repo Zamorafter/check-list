@@ -1,117 +1,165 @@
 /**
  * Checklist de Inspección de Guardia - Operaciones & Servicios
- * Manejo de estado, renderizado dinámico por pisos (Sube/Baja), firmas y modal.
+ * Manejo de estado, departamentos, asistencias, recorridos (10 AM / 2 PM / 7 PM / Adicional), firmas, fotos y cámara en vivo.
  */
 
-// Estructura predefinida de Pisos y Tareas de Operaciones
-const DEFAULT_FLOORS_DATA = [
+// Estructura predefinida de Departamentos y Puntos de Control
+const DEFAULT_SECTIONS_DATA = [
     {
-        id: "piso-sotano",
-        name: "Sótano / Cuartos de Máquinas",
-        badge: "Nivel -1",
+        id: "sec-asistencias",
+        name: "1. Asistencias de Personal (Interno & Contratistas)",
+        badge: "Asistencias",
         order: 1,
         items: [
-            { id: "sot-bomba-1", category: "Bombas de Agua", title: "Sistema de Bombas de Agua & Hidroneumático", desc: "Verificar presión de trabajo (PSI), ausencia de fugas y tableros de control en automático." },
-            { id: "sot-tablero-1", category: "Tableros Eléctricos", title: "Tablero Eléctrico Principal de Sótano", desc: "Comprobar que no existan breakers disparados, calentamiento anormal ni ruidos térmicos." },
-            { id: "sot-gas-1", category: "Llaves de Gas y Agua", title: "Llaves y Válvulas Generales de Gas y Agua", desc: "Verificar llaves de paso principales cerradas o en posición de seguridad." },
-            { id: "sot-aire-1", category: "Aires Centrales", title: "Unidades de Extracción y Ventilación Mecánica", desc: "Revisar funcionamiento de extractores de sótano y flujo de aire constante." },
-            { id: "sot-evac-1", category: "Vías de Evacuación", title: "Salidas de Emergencia y Pasillos de Sótano", desc: "Verificar puertas ignífugas cerradas, despejadas de obstáculos y luces de emergencia activas." },
-            { id: "sot-mat-1", category: "Material Publicitario", title: "Depósito de Material Publicitario & POP", desc: "Verificar port pendones, tótems móviles y stands guardados bajo llave." }
+            { id: "asist-seguridad", category: "Asistencias", type: "status_notes", title: "Personal Interno - Seguridad", desc: "Verificar asistencia, turnos y novedades de los oficiales de seguridad." },
+            { id: "asist-operaciones", category: "Asistencias", type: "status_notes", title: "Personal Interno - Operaciones", desc: "Verificar presencia del equipo técnico de operaciones y mantenimiento." },
+            { id: "asist-parking", category: "Asistencias", type: "status_notes", title: "Personal Interno - Parking", desc: "Verificar asistencia de operadores de estacionamiento y taquillas." },
+            { id: "asist-jdml", category: "Asistencias", type: "status_notes", title: "Contratistas / Aliados - JDML", desc: "Verificar asistencia y reportes del personal de la contratista JDML." },
+            { id: "asist-dl", category: "Asistencias", type: "status_notes", title: "Contratistas / Aliados - DL", desc: "Verificar asistencia del personal de la contratista DL." },
+            { id: "asist-ferremantenimiento", category: "Asistencias", type: "status_notes", title: "Contratistas / Aliados - FERREMANTENIMIENTO", desc: "Verificar asistencia y trabajos en ejecución de Ferremantenimiento." }
         ]
     },
     {
-        id: "piso-pb",
-        name: "Planta Baja / Hall Principal & Vitrinas",
-        badge: "Planta Baja",
+        id: "sec-operaciones",
+        name: "2. Operaciones & Equipos Centrales",
+        badge: "Operaciones",
         order: 2,
         items: [
-            { id: "pb-luz-1", category: "Luces Perimetrales", title: "Iluminación Perimetral Externa y Accesos", desc: "Verificar encendido/apagado correcto de luminarias nocturnas y fotoceldas." },
-            { id: "pb-pantalla-1", category: "Pantallas y Avisos", title: "Pantallas Publicitarias y Tótems Digitales", desc: "Comprobar pantallas encendidas con transmisión de contenido o apagadas según horario." },
-            { id: "pb-vitrina-1", category: "Luces Perimetrales", title: "Iluminación de Vitrinas y Fachada Principal", desc: "Revisar avisos luminosos, marquesinas y vitrinas comerciales encendidas según programación." },
-            { id: "pb-evac-1", category: "Vías de Evacuación", title: "Acceso Principal y Salidas de Emergencia PB", desc: "Puertas principales con cerrojo de seguridad nocturno/feriado y rutas despejadas." },
-            { id: "pb-tablero-1", category: "Tableros Eléctricos", title: "Tablero de Iluminación y Servicios PB", desc: "Inspeccionar interruptores en posición norma y paneles cerrados con llave." },
-            { id: "pb-mat-1", category: "Material Publicitario", title: "Resguardo de Banners y Material de Fachada", desc: "Confirmar que no haya material publicitario exterior expuesto al viento o lluvias." }
+            { id: "op-voltaje", category: "Operaciones", type: "value_input", inputType: "text", unit: "Voltios (V)", placeholder: "Ej. 208V / 220V", title: "Voltaje (Valor Promedio)", desc: "Ingresar lectura del valor promedio de voltaje principal registrado." },
+            { id: "op-hidroneumatico", category: "Operaciones", type: "status_buttons", okLabel: "Operativo", issueLabel: "No Operativo", title: "Sistema Hidroneumático", desc: "Verificar bombas de agua, presión de trabajo (PSI) y tableros de control." },
+            { id: "op-banos", category: "Operaciones", type: "status_notes", title: "Estado General de Baños", desc: "Revisar baños de visitantes en todos los niveles, ausencia de fugas y limpieza." },
+            { id: "op-chiller-1", category: "Operaciones", type: "dual_value", title: "Chiller 1 (Suministro & Retorno)", label1: "Suministro (°C / PSI)", label2: "Retorno (°C / PSI)", desc: "Registrar lecturas de temperatura/presión de Suministro y Retorno del Chiller 1." },
+            { id: "op-chiller-3", category: "Operaciones", type: "dual_value", title: "Chiller 3 (Suministro & Retorno)", label1: "Suministro (°C / PSI)", label2: "Retorno (°C / PSI)", desc: "Registrar lecturas de temperatura/presión de Suministro y Retorno del Chiller 3." },
+            { id: "op-vrf", category: "Operaciones", type: "status_counter", max: 10, title: "Sistema VRF (Climatización)", statusLabel: "Estado General", counterLabel: "Equipos Disponibles (de 10 totales)", desc: "Verificar funcionalidad del sistema VRF y número de equipos disponibles." },
+            { id: "op-escaleras", category: "Operaciones", type: "value_input", inputType: "number", placeholder: "Ej. 4", title: "Escaleras Mecánicas Operativas", desc: "Indicar cantidad de escaleras mecánicas en servicio activo." },
+            { id: "op-ascensores-carga", category: "Operaciones", type: "value_input", inputType: "text", placeholder: "Ej. 2 de 2 operativos", title: "Ascensores de Carga (2 Totales)", desc: "Verificar si están funcionales los 2 ascensores de carga o registrar novedades." },
+            { id: "op-ascensores-panorami", category: "Operaciones", type: "value_input", inputType: "text", placeholder: "Ej. 6 de 6 operativos", title: "Ascensores Panorámicos (6 Totales del Mall)", desc: "Indicar operatividad de los 6 ascensores panorámicos principales." }
         ]
     },
     {
-        id: "piso-1",
-        name: "Piso 1 - Locales & Pasillos Comunes",
-        badge: "Piso 1",
+        id: "sec-parking",
+        name: "3. Parking / Estacionamiento",
+        badge: "Parking",
         order: 3,
         items: [
-            { id: "p1-aire-1", category: "Aires Centrales", title: "Unidad Manejadora de Aire (UMA) Piso 1", desc: "Revisar temperatura ambiental, ausencia de botes de condensado y ruido regular." },
-            { id: "p1-tablero-1", category: "Tableros Eléctricos", title: "Tableros Secundarios de Iluminación Piso 1", desc: "Inspección visual de breakers de pasillo y circuitos de servicios." },
-            { id: "p1-pantalla-1", category: "Pantallas y Avisos", title: "Directorios Digitales y Avisos Luminosos", desc: "Comprobar estado de pantallas indicadoras de directorio y marquesinas." },
-            { id: "p1-evac-1", category: "Vías de Evacuación", title: "Mangueras / Extintores y Luces de Salida", desc: "Gabinetes contra incendio cerrados, extintores con carga vigente y luces de salida operativas." },
-            { id: "p1-gas-1", category: "Llaves de Gas y Agua", title: "Llaves de Corte de Agua en Baños de Piso 1", desc: "Inspeccionar baños de visitantes sin botes continuos ni llaves abiertas." }
+            { id: "park-barreras", category: "Parking", type: "status_notes", title: "Barreras de Acceso", desc: "Verificar operatividad de brazos y barreras de entrada y salida." },
+            { id: "park-cajas", category: "Parking", type: "status_notes", title: "Cajas de Pago y Taquillas", desc: "Revisar funcionamiento de cajas automáticas/manuales de cobro." }
         ]
     },
     {
-        id: "piso-2",
-        name: "Piso 2 - Oficinas Administrativas & IT",
-        badge: "Piso 2",
+        id: "sec-it",
+        name: "4. IT & Tecnología",
+        badge: "IT",
         order: 4,
         items: [
-            { id: "p2-aire-1", category: "Aires Centrales", title: "Climatización de Oficinas y Servidores IT", desc: "Verificar termostatos a temperatura adecuada y equipos centrales en modo guardia." },
-            { id: "p2-tablero-1", category: "Tableros Eléctricos", title: "Tableros Eléctricos de Fuerza y Computación", desc: "Verificar llaves térmicas de energía regulada y tableros bajo llave." },
-            { id: "p2-evac-1", category: "Vías de Evacuación", title: "Escaleras de Evacuación Internas", desc: "Pasillos y escaleras de escape libres de cajas, muebles u obstrucciones." },
-            { id: "p2-gas-1", category: "Llaves de Gas y Agua", title: "Llaves de Agua en Kitchenette y Sanitarios", desc: "Verificar grifos cerrados en áreas de descanso y cafetería." }
+            { id: "it-wifi", category: "IT", type: "status_notes", title: "Red Wifi", desc: "Verificar señal y conectividad de la red Wifi comercial y administrativa." },
+            { id: "it-hilo-musical", category: "IT", type: "status_notes", title: "Hilo Musical General", desc: "Comprobar audio y reproducción en pasillos y zonas comunes." },
+            { id: "it-pantallas", category: "IT", type: "status_notes", title: "Pantallas Publicitarias y Tótems", desc: "Revisar transmisión de contenidos digitales y estado de pantallas." },
+            { id: "it-hilo-foodhall", category: "IT", type: "status_notes", title: "Hilo Musical Food Hall", desc: "Verificar sistema de audio independiente del área del Food Hall." }
         ]
     },
     {
-        id: "piso-3",
-        name: "Piso 3 - Operaciones & Salón de Eventos",
-        badge: "Piso 3",
+        id: "sec-seguridad",
+        name: "5. Seguridad & CCTV",
+        badge: "Seguridad",
         order: 5,
         items: [
-            { id: "p3-pantalla-1", category: "Pantallas y Avisos", title: "Pantallas de Promoción y Eventos", desc: "Comprobar proyectores y pantallas de señalización digital apagados/standby." },
-            { id: "p3-mat-1", category: "Material Publicitario", title: "Backings y Escenografías Publicitarias", desc: "Verificar estandartes y elementos de escenografía asegurados correctamente." },
-            { id: "p3-tablero-1", category: "Tableros Eléctricos", title: "Tablero de Conexiones de Eventos", desc: "Confirmar que breakers de tomas especiales estén desenergizados." },
-            { id: "p3-evac-1", category: "Vías de Evacuación", title: "Puertas de Salida a Escalera de Servicio", desc: "Verificar mecanismo antipánico de puertas de evacuación." }
+            { id: "seg-cctv", category: "Seguridad", type: "status_buttons", okLabel: "Activo", issueLabel: "No Activo", title: "Circuito Cerrado (CCTV)", desc: "Verificar grabadores NVR/DVR y monitores activos en centro de control." },
+            { id: "seg-camaras", category: "Seguridad", type: "status_notes", title: "Cámaras de Vigilancia", desc: "Revisar operatividad, cobertura y visión de las cámaras internas y externas." }
         ]
     },
     {
-        id: "piso-terraza",
-        name: "Terraza / Techo - Equipos Centrales",
-        badge: "Terraza",
+        id: "sec-trafico",
+        name: "6. Tráfico de Visitantes (Registro 7:00 PM)",
+        badge: "Tráfico",
         order: 6,
         items: [
-            { id: "ter-aire-1", category: "Aires Centrales", title: "Chillers & Condensadoras Principales", desc: "Inspeccionar unidades exteriores de aire acondicionado central, presiones y vibración." },
-            { id: "ter-luz-1", category: "Luces Perimetrales", title: "Avisos Corpóreos e Iluminación de Techo", desc: "Verificar aviso principal de fachada en techo, reflectores y balizas de señalización aérea." },
-            { id: "ter-evac-1", category: "Vías de Evacuación", title: "Acceso y Escotilla a la Terraza", desc: "Puerta de acceso a terraza cerrada con candado o cerradura de seguridad." },
-            { id: "ter-gas-1", category: "Llaves de Gas y Agua", title: "Estación de Tanques de Agua e Hidrantes", desc: "Verificar tanques superiores, boyas de nivel y llaves matrices de corte." }
+            { id: "trafico-personas", category: "Tráfico", type: "value_input", inputType: "number", placeholder: "Ej. 3500", title: "Conteo de Personas (7:00 PM)", desc: "Afluencia estimada de personas a las 7:00 PM (Viernes, Sábado y Domingo)." },
+            { id: "trafico-carros", category: "Tráfico", type: "value_input", inputType: "number", placeholder: "Ej. 1200", title: "Conteo de Carros / Vehículos (7:00 PM)", desc: "Afluencia estimada de vehículos ingresados a las 7:00 PM." }
+        ]
+    },
+    {
+        id: "sec-eventos",
+        name: "7. Eventos del Día",
+        badge: "Eventos",
+        order: 7,
+        items: [
+            { id: "evento-nombre", category: "Eventos", type: "value_input", inputType: "text", placeholder: "Ej. Concierto / Actividad Especial / N/A", title: "Nombre del Evento", desc: "Indicar nombre de la actividad o evento en desarrollo." },
+            { id: "evento-lugar", category: "Eventos", type: "value_input", inputType: "text", placeholder: "Ej. Plaza Central - Nivel 2", title: "Lugar / Ubicación del Evento", desc: "Indicar ubicación exacta dentro de las instalaciones." }
+        ]
+    },
+    {
+        id: "sec-novedades",
+        name: "8. Reporte Escrito de Novedades",
+        badge: "Novedades",
+        order: 8,
+        items: [
+            { id: "nov-reporte", category: "Novedades", type: "text_notes_photo", title: "Descripción Detallada de Novedades", desc: "Redacte las observaciones o incidencias relevantes del recorrido. Puede tomar foto directamente o adjuntar archivo." }
+        ]
+    },
+    {
+        id: "sec-fotos",
+        name: "9. Fotos Generales del Recorrido",
+        badge: "Fotos",
+        order: 9,
+        items: [
+            { id: "fotos-generales", category: "Fotos", type: "general_photos_gallery", title: "Galería Fotográfica de la Inspección", desc: "Tome fotografías generales del recorrido directamente desde el dispositivo o suba imágenes." }
         ]
     }
 ];
 
 // Estado global de la aplicación
 let appState = {
-    currentRecordId: null, // ID de la guardia del historial cargada en pantalla
+    currentRecordId: null,
     guardName: "",
-    shiftType: "Fin de Semana - Diurno",
+    shiftTimeSlot: "10:00 AM",
     inspectionDate: new Date().toISOString().slice(0, 16),
     buildingName: "Sede Principal - Edificio Operativo",
-    direction: "up",
+    lightingStatus: "Cumplió",
+    commercialHoursStatus: "Cumplieron",
     categoryFilter: "all",
-    responses: {} // { itemId: { status: 'ok'|'issue'|'na', severity: '', notes: '', image: '' } }
+    responses: {},
+    generalPhotos: []
 };
 
 // Referencias del DOM
 const elGuardName = document.getElementById("guard-name");
-const elShiftType = document.getElementById("shift-type");
+const elShiftTimeSlot = document.getElementById("shift-time-slot");
 const elInspectionDate = document.getElementById("inspection-date");
 const elBuildingName = document.getElementById("building-name");
+const elLightingStatus = document.getElementById("lighting-status");
+const elCommercialHoursStatus = document.getElementById("commercial-hours-status");
+const elBtnExtraRound = document.getElementById("btn-extra-round");
+const elCurrentRoundBadge = document.getElementById("current-round-badge");
 const elCategoryFilter = document.getElementById("category-filter");
 const elFloorsContainer = document.getElementById("floors-container");
 
-// Nuevas referencias para imágenes
+// Referencias para modal de observaciones de fotos por item
 const elModalImage = document.getElementById("modal-image");
 const elFileUploadName = document.getElementById("file-upload-name");
 const elImagePreviewContainer = document.getElementById("modal-image-preview-container");
 const elImagePreview = document.getElementById("modal-image-preview");
 const elBtnRemoveImage = document.getElementById("btn-remove-image");
+const elBtnOpenCameraModal = document.getElementById("btn-open-camera-modal");
 
-// Nuevas referencias para Historial
+// Referencias para Cámara en Vivo
+const elModalCamera = document.getElementById("modal-camera");
+const elCameraStream = document.getElementById("camera-stream");
+const elCameraCanvas = document.getElementById("camera-canvas");
+const elCameraSnapshotPreview = document.getElementById("camera-snapshot-preview");
+const elBtnCloseCamera = document.getElementById("btn-close-camera");
+const elBtnSwitchCamera = document.getElementById("btn-switch-camera");
+const elBtnCapturePhoto = document.getElementById("btn-capture-photo");
+const elBtnRetakePhoto = document.getElementById("btn-retake-photo");
+const elBtnUsePhoto = document.getElementById("btn-use-photo");
+
+// Control de flujo de cámara en vivo
+let activeMediaStream = null;
+let currentFacingMode = "environment"; // "environment" o "user"
+let capturedPhotoBase64 = null;
+let cameraTargetType = "modal_observation"; // "modal_observation" o "general_photos"
+
+// Referencias para Historial
 const elBtnHistory = document.getElementById("btn-history");
 const elBtnSaveShift = document.getElementById("btn-save-shift");
 const elHistoryBackdrop = document.getElementById("history-backdrop");
@@ -121,7 +169,7 @@ const elHistoryDateFilter = document.getElementById("history-date-filter");
 const elBtnClearDateFilter = document.getElementById("btn-clear-date-filter");
 const elHistoryListContainer = document.getElementById("history-list-container");
 
-// Nuevas referencias para Visor de Imagen Ampliada
+// Referencias para Visor de Imagen Ampliada
 const elModalImageViewer = document.getElementById("modal-image-viewer");
 const elViewerTitle = document.getElementById("viewer-title");
 const elViewerImg = document.getElementById("viewer-img");
@@ -153,10 +201,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Guardar y Cargar en LocalStorage
 function saveState() {
-    appState.guardName = elGuardName.value;
-    appState.shiftType = elShiftType.value;
-    appState.inspectionDate = elInspectionDate.value;
-    appState.buildingName = elBuildingName.value;
+    appState.guardName = elGuardName ? elGuardName.value : "";
+    appState.shiftTimeSlot = elShiftTimeSlot ? elShiftTimeSlot.value : "10:00 AM";
+    appState.inspectionDate = elInspectionDate ? elInspectionDate.value : "";
+    appState.buildingName = elBuildingName ? elBuildingName.value : "";
+    appState.lightingStatus = elLightingStatus ? elLightingStatus.value : "Cumplió";
+    appState.commercialHoursStatus = elCommercialHoursStatus ? elCommercialHoursStatus.value : "Cumplieron";
     localStorage.setItem("guard_checklist_state", JSON.stringify(appState));
 }
 
@@ -171,46 +221,85 @@ function loadSavedState() {
         }
     }
     
-    // Asignar a inputs
-    elGuardName.value = appState.guardName || "";
-    elShiftType.value = appState.shiftType || "Fin de Semana - Diurno";
-    elInspectionDate.value = appState.inspectionDate || new Date().toISOString().slice(0, 16);
-    elBuildingName.value = appState.buildingName || "Sede Principal - Edificio Operativo";
+    if (elGuardName) elGuardName.value = appState.guardName || "";
+    if (elShiftTimeSlot) elShiftTimeSlot.value = appState.shiftTimeSlot || "10:00 AM";
+    if (elInspectionDate) elInspectionDate.value = appState.inspectionDate || new Date().toISOString().slice(0, 16);
+    if (elBuildingName) elBuildingName.value = appState.buildingName || "Sede Principal - Edificio Operativo";
+    if (elLightingStatus) elLightingStatus.value = appState.lightingStatus || "Cumplió";
+    if (elCommercialHoursStatus) elCommercialHoursStatus.value = appState.commercialHoursStatus || "Cumplieron";
     
-    // Asegurar sentido ascendente por defecto
-    appState.direction = "up";
+    updateRoundBadge();
+}
+
+function updateRoundBadge() {
+    if (!elCurrentRoundBadge) return;
+    const timeVal = appState.shiftTimeSlot;
+    if (timeVal === "10:00 AM") {
+        elCurrentRoundBadge.innerHTML = `<i class="fa-solid fa-sun"></i> 10:00 AM - Recorrido Mañana`;
+        elCurrentRoundBadge.className = "badge badge-info";
+    } else if (timeVal === "2:00 PM") {
+        elCurrentRoundBadge.innerHTML = `<i class="fa-solid fa-cloud-sun"></i> 2:00 PM - Recorrido Tarde`;
+        elCurrentRoundBadge.className = "badge badge-warning";
+    } else if (timeVal === "7:00 PM") {
+        elCurrentRoundBadge.innerHTML = `<i class="fa-solid fa-moon"></i> 7:00 PM - Recorrido Noche`;
+        elCurrentRoundBadge.className = "badge badge-info";
+    } else {
+        elCurrentRoundBadge.innerHTML = `<i class="fa-solid fa-plus-circle"></i> Recorrido Adicional`;
+        elCurrentRoundBadge.className = "badge badge-success";
+    }
 }
 
 // Configurar Escuchadores de Eventos
 function setupEventListeners() {
-    // Inputs de cabecera
-    elGuardName.addEventListener("input", saveState);
-    elShiftType.addEventListener("change", saveState);
-    elInspectionDate.addEventListener("change", saveState);
-    elBuildingName.addEventListener("input", saveState);
-
-    // Filtro por categoría
-    elCategoryFilter.addEventListener("change", (e) => {
-        appState.categoryFilter = e.target.value;
-        renderFloors();
+    if (elGuardName) elGuardName.addEventListener("input", saveState);
+    if (elShiftTimeSlot) elShiftTimeSlot.addEventListener("change", (e) => {
+        appState.shiftTimeSlot = e.target.value;
+        updateRoundBadge();
+        saveState();
     });
+    if (elInspectionDate) elInspectionDate.addEventListener("change", saveState);
+    if (elBuildingName) elBuildingName.addEventListener("input", saveState);
+    if (elLightingStatus) elLightingStatus.addEventListener("change", saveState);
+    if (elCommercialHoursStatus) elCommercialHoursStatus.addEventListener("change", saveState);
 
-    // Botón de Reinicio
-    document.getElementById("btn-reset").addEventListener("click", () => {
-        if (confirm("¿Está seguro de reiniciar el checklist? Se borrarán las respuestas actuales.")) {
-            appState.responses = {};
-            appState.currentRecordId = null;
+    if (elBtnExtraRound) {
+        elBtnExtraRound.addEventListener("click", () => {
+            appState.shiftTimeSlot = "Recorrido Adicional";
+            if (elShiftTimeSlot) elShiftTimeSlot.value = "Recorrido Adicional";
+            updateRoundBadge();
             saveState();
-            renderAll();
-        }
-    });
+        });
+    }
+
+    if (elCategoryFilter) {
+        elCategoryFilter.addEventListener("change", (e) => {
+            appState.categoryFilter = e.target.value;
+            renderFloors();
+        });
+    }
+
+    const btnReset = document.getElementById("btn-reset");
+    if (btnReset) {
+        btnReset.addEventListener("click", () => {
+            if (confirm("¿Está seguro de reiniciar el checklist? Se borrarán las respuestas del recorrido actual.")) {
+                appState.responses = {};
+                appState.generalPhotos = [];
+                appState.currentRecordId = null;
+                saveState();
+                renderAll();
+            }
+        });
+    }
 
     // Modal Handlers
-    document.getElementById("modal-close").addEventListener("click", closeModal);
-    document.getElementById("modal-cancel").addEventListener("click", closeModal);
-    document.getElementById("modal-save").addEventListener("click", saveModalObservation);
+    const modalClose = document.getElementById("modal-close");
+    const modalCancel = document.getElementById("modal-cancel");
+    const modalSave = document.getElementById("modal-save");
+    if (modalClose) modalClose.addEventListener("click", closeModal);
+    if (modalCancel) modalCancel.addEventListener("click", closeModal);
+    if (modalSave) modalSave.addEventListener("click", saveModalObservation);
 
-    // ========== IMAGE UPLOAD ==========
+    // ========== IMAGE UPLOAD EN MODAL DE OBSERVACIÓN ==========
     if (elModalImage) {
         elModalImage.addEventListener("change", (e) => {
             const file = e.target.files[0];
@@ -220,7 +309,6 @@ function setupEventListeners() {
                 elModalImage.value = "";
                 return;
             }
-            // Limit to 5 MB
             if (file.size > 5 * 1024 * 1024) {
                 alert("La imagen es demasiado grande. El límite es 5 MB.");
                 elModalImage.value = "";
@@ -247,25 +335,26 @@ function setupEventListeners() {
         });
     }
 
-    // ========== HISTORY DRAWER ==========
-    if (elBtnHistory) {
-        elBtnHistory.addEventListener("click", () => {
-            openHistoryDrawer();
+    if (elBtnOpenCameraModal) {
+        elBtnOpenCameraModal.addEventListener("click", () => {
+            openCameraModal("modal_observation");
         });
     }
 
-    if (elBtnCloseHistory) {
-        elBtnCloseHistory.addEventListener("click", closeHistoryDrawer);
-    }
+    // ========== CÁMARA EN VIVO WEBRTC ==========
+    if (elBtnCloseCamera) elBtnCloseCamera.addEventListener("click", closeCameraModal);
+    if (elBtnSwitchCamera) elBtnSwitchCamera.addEventListener("click", switchCamera);
+    if (elBtnCapturePhoto) elBtnCapturePhoto.addEventListener("click", captureCameraSnapshot);
+    if (elBtnRetakePhoto) elBtnRetakePhoto.addEventListener("click", resetCameraViewfinder);
+    if (elBtnUsePhoto) elBtnUsePhoto.addEventListener("click", useCapturedPhoto);
 
-    if (elHistoryBackdrop) {
-        elHistoryBackdrop.addEventListener("click", closeHistoryDrawer);
-    }
+    // ========== HISTORY DRAWER ==========
+    if (elBtnHistory) elBtnHistory.addEventListener("click", openHistoryDrawer);
+    if (elBtnCloseHistory) elBtnCloseHistory.addEventListener("click", closeHistoryDrawer);
+    if (elHistoryBackdrop) elHistoryBackdrop.addEventListener("click", closeHistoryDrawer);
 
     if (elHistoryDateFilter) {
-        elHistoryDateFilter.addEventListener("change", () => {
-            renderHistoryList();
-        });
+        elHistoryDateFilter.addEventListener("change", renderHistoryList);
     }
 
     if (elBtnClearDateFilter) {
@@ -276,9 +365,7 @@ function setupEventListeners() {
     }
 
     // ========== SAVE SHIFT ==========
-    if (elBtnSaveShift) {
-        elBtnSaveShift.addEventListener("click", saveCurrentShift);
-    }
+    if (elBtnSaveShift) elBtnSaveShift.addEventListener("click", saveCurrentShift);
 
     // ========== IMAGE VIEWER MODAL ==========
     if (elBtnCloseViewer) {
@@ -287,7 +374,6 @@ function setupEventListeners() {
         });
     }
 
-    // Close image viewer when clicking on backdrop
     if (elModalImageViewer) {
         elModalImageViewer.addEventListener("click", (e) => {
             if (e.target === elModalImageViewer) {
@@ -295,6 +381,133 @@ function setupEventListeners() {
             }
         });
     }
+}
+
+// ========== CÁMARA EN VIVO EN LA PÁGINA (WEBRTC) ==========
+async function openCameraModal(targetType = "modal_observation") {
+    cameraTargetType = targetType;
+    capturedPhotoBase64 = null;
+    
+    if (elModalCamera) elModalCamera.classList.remove("hidden");
+    resetCameraViewfinder();
+    
+    try {
+        await startCameraStream(currentFacingMode);
+    } catch (err) {
+        console.error("Error al iniciar cámara:", err);
+        alert("No se pudo acceder a la cámara del dispositivo. Usando selector directo de archivo.");
+        closeCameraModal();
+        if (targetType === "modal_observation" && elModalImage) {
+            elModalImage.click();
+        } else if (targetType === "general_photos") {
+            const input = document.getElementById("general-photos-input");
+            if (input) input.click();
+        }
+    }
+}
+
+async function startCameraStream(facingMode = "environment") {
+    stopCameraStream();
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("API MediaDevices no soportada en este navegador.");
+    }
+
+    const constraints = {
+        video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+        },
+        audio: false
+    };
+
+    activeMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (elCameraStream) {
+        elCameraStream.srcObject = activeMediaStream;
+        await elCameraStream.play();
+    }
+}
+
+function stopCameraStream() {
+    if (activeMediaStream) {
+        activeMediaStream.getTracks().forEach(track => track.stop());
+        activeMediaStream = null;
+    }
+    if (elCameraStream) {
+        elCameraStream.srcObject = null;
+    }
+}
+
+function closeCameraModal() {
+    stopCameraStream();
+    if (elModalCamera) elModalCamera.classList.add("hidden");
+}
+
+async function switchCamera() {
+    currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+    try {
+        await startCameraStream(currentFacingMode);
+    } catch (err) {
+        console.error("Error al cambiar cámara:", err);
+    }
+}
+
+function captureCameraSnapshot() {
+    if (!elCameraStream || !elCameraCanvas) return;
+    
+    const video = elCameraStream;
+    const canvas = elCameraCanvas;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    capturedPhotoBase64 = canvas.toDataURL("image/jpeg", 0.85);
+
+    if (elCameraSnapshotPreview) {
+        elCameraSnapshotPreview.src = capturedPhotoBase64;
+        elCameraSnapshotPreview.classList.remove("hidden");
+    }
+    if (elCameraStream) elCameraStream.classList.add("hidden");
+
+    if (elBtnCapturePhoto) elBtnCapturePhoto.classList.add("hidden");
+    if (elBtnSwitchCamera) elBtnSwitchCamera.classList.add("hidden");
+    if (elBtnRetakePhoto) elBtnRetakePhoto.classList.remove("hidden");
+    if (elBtnUsePhoto) elBtnUsePhoto.classList.remove("hidden");
+}
+
+function resetCameraViewfinder() {
+    capturedPhotoBase64 = null;
+    if (elCameraSnapshotPreview) {
+        elCameraSnapshotPreview.src = "";
+        elCameraSnapshotPreview.classList.add("hidden");
+    }
+    if (elCameraStream) elCameraStream.classList.remove("hidden");
+
+    if (elBtnCapturePhoto) elBtnCapturePhoto.classList.remove("hidden");
+    if (elBtnSwitchCamera) elBtnSwitchCamera.classList.remove("hidden");
+    if (elBtnRetakePhoto) elBtnRetakePhoto.classList.add("hidden");
+    if (elBtnUsePhoto) elBtnUsePhoto.classList.add("hidden");
+}
+
+function useCapturedPhoto() {
+    if (!capturedPhotoBase64) return;
+
+    if (cameraTargetType === "modal_observation") {
+        tempAttachedImageBase64 = capturedPhotoBase64;
+        if (elImagePreview) elImagePreview.src = tempAttachedImageBase64;
+        if (elImagePreviewContainer) elImagePreviewContainer.classList.remove("hidden");
+        if (elFileUploadName) elFileUploadName.textContent = "Foto tomada con cámara";
+    } else if (cameraTargetType === "general_photos") {
+        if (!appState.generalPhotos) appState.generalPhotos = [];
+        appState.generalPhotos.push(capturedPhotoBase64);
+        saveState();
+        renderFloors();
+    }
+
+    closeCameraModal();
 }
 
 // ========== HISTORY DRAWER FUNCTIONS ==========
@@ -317,20 +530,17 @@ async function renderHistoryList() {
         await initDB();
         let records = await getAllGuardRecords();
 
-        // Sort by date, most recent first
         records.sort((a, b) => {
             const da = new Date(a.inspectionDate || 0);
             const db = new Date(b.inspectionDate || 0);
             return db - da;
         });
 
-        // Apply date filter
         const filterDate = elHistoryDateFilter ? elHistoryDateFilter.value : "";
         if (filterDate) {
             records = records.filter(r => {
                 if (!r.inspectionDate) return false;
-                const recordDate = r.inspectionDate.substring(0, 10);
-                return recordDate === filterDate;
+                return r.inspectionDate.substring(0, 10) === filterDate;
             });
         }
 
@@ -338,7 +548,7 @@ async function renderHistoryList() {
             elHistoryListContainer.innerHTML = `
                 <div class="no-history-msg">
                     <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                    ${filterDate ? "No hay registros para la fecha seleccionada." : "No hay guardias guardadas aún."}
+                    ${filterDate ? "No hay registros para la fecha seleccionada." : "No hay recorridos de guardia guardados aún."}
                 </div>
             `;
             return;
@@ -350,13 +560,12 @@ async function renderHistoryList() {
             const card = document.createElement("div");
             card.className = "history-item-card";
 
-            // Calculate progress for this record
             let total = 0, answered = 0;
-            DEFAULT_FLOORS_DATA.forEach(floor => {
-                floor.items.forEach(item => {
+            DEFAULT_SECTIONS_DATA.forEach(section => {
+                section.items.forEach(item => {
                     total++;
                     const resp = record.responses ? record.responses[item.id] : null;
-                    if (resp && resp.status) answered++;
+                    if (resp && (resp.status || resp.value || resp.notes || (resp.photos && resp.photos.length > 0))) answered++;
                 });
             });
             const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
@@ -371,10 +580,11 @@ async function renderHistoryList() {
                 </div>
                 <div class="history-card-meta">
                     <span><i class="fa-solid fa-calendar-day"></i> ${dateDisplay}</span>
-                    <span><i class="fa-solid fa-business-time"></i> ${escapeHtml(record.shiftType || "N/D")}</span>
+                    <span><i class="fa-solid fa-clock"></i> Recorrido: <strong>${escapeHtml(record.shiftTimeSlot || "N/D")}</strong></span>
+                    <span><i class="fa-solid fa-lightbulb"></i> Iluminación: ${escapeHtml(record.lightingStatus || "N/D")}</span>
                 </div>
                 <div class="history-card-progress">
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">Progreso: ${pct}% (${answered}/${total})</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Completado: ${pct}%</span>
                     <div class="mini-progress-bar-container">
                         <div class="mini-progress-bar-fill" style="width: ${pct}%;"></div>
                     </div>
@@ -389,12 +599,10 @@ async function renderHistoryList() {
                 </div>
             `;
 
-            // Load button
             card.querySelector(".btn-load-record").addEventListener("click", () => {
                 loadHistoryRecord(record.id);
             });
 
-            // Delete button
             card.querySelector(".btn-delete-record").addEventListener("click", () => {
                 deleteHistoryRecord(record.id);
             });
@@ -409,13 +617,12 @@ async function renderHistoryList() {
 
 // ========== SAVE CURRENT SHIFT ==========
 async function saveCurrentShift() {
-    // Sync current input values to appState before saving
     saveState();
 
     const guardName = appState.guardName;
     if (!guardName) {
         alert("Por favor ingrese el nombre del Inspector / Guardia antes de guardar.");
-        elGuardName.focus();
+        if (elGuardName) elGuardName.focus();
         return;
     }
 
@@ -424,10 +631,13 @@ async function saveCurrentShift() {
     const record = {
         id: recordId,
         guardName: appState.guardName,
-        shiftType: appState.shiftType,
+        shiftTimeSlot: appState.shiftTimeSlot,
         inspectionDate: appState.inspectionDate,
         buildingName: appState.buildingName,
-        responses: JSON.parse(JSON.stringify(appState.responses)), // Deep clone
+        lightingStatus: appState.lightingStatus,
+        commercialHoursStatus: appState.commercialHoursStatus,
+        responses: JSON.parse(JSON.stringify(appState.responses)),
+        generalPhotos: [...appState.generalPhotos],
         savedAt: new Date().toISOString()
     };
 
@@ -437,7 +647,6 @@ async function saveCurrentShift() {
         appState.currentRecordId = recordId;
         saveState();
 
-        // Visual feedback
         const btn = elBtnSaveShift;
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fa-solid fa-check"></i> ¡Guardado!';
@@ -462,24 +671,28 @@ async function loadHistoryRecord(id) {
             return;
         }
 
-        if (!confirm("¿Desea cargar esta guardia? Se reemplazarán los datos actuales.")) {
+        if (!confirm("¿Desea cargar este recorrido de guardia? Se reemplazarán los datos en pantalla.")) {
             return;
         }
 
-        // Replace appState with record data
         appState.guardName = record.guardName || "";
-        appState.shiftType = record.shiftType || "Fin de Semana - Diurno";
+        appState.shiftTimeSlot = record.shiftTimeSlot || "10:00 AM";
         appState.inspectionDate = record.inspectionDate || new Date().toISOString().slice(0, 16);
         appState.buildingName = record.buildingName || "Sede Principal - Edificio Operativo";
+        appState.lightingStatus = record.lightingStatus || "Cumplió";
+        appState.commercialHoursStatus = record.commercialHoursStatus || "Cumplieron";
         appState.responses = record.responses || {};
+        appState.generalPhotos = record.generalPhotos || [];
         appState.currentRecordId = record.id;
 
-        // Update UI inputs
-        elGuardName.value = appState.guardName;
-        elShiftType.value = appState.shiftType;
-        elInspectionDate.value = appState.inspectionDate;
-        elBuildingName.value = appState.buildingName;
+        if (elGuardName) elGuardName.value = appState.guardName;
+        if (elShiftTimeSlot) elShiftTimeSlot.value = appState.shiftTimeSlot;
+        if (elInspectionDate) elInspectionDate.value = appState.inspectionDate;
+        if (elBuildingName) elBuildingName.value = appState.buildingName;
+        if (elLightingStatus) elLightingStatus.value = appState.lightingStatus;
+        if (elCommercialHoursStatus) elCommercialHoursStatus.value = appState.commercialHoursStatus;
 
+        updateRoundBadge();
         saveState();
         renderAll();
         closeHistoryDrawer();
@@ -497,7 +710,6 @@ async function deleteHistoryRecord(id) {
         await initDB();
         await deleteGuardRecord(id);
 
-        // If the deleted record is the currently loaded one, clear the reference
         if (appState.currentRecordId === id) {
             appState.currentRecordId = null;
             saveState();
@@ -524,72 +736,162 @@ function renderAll() {
     calculateMetrics();
 }
 
-// Renderizar Pisos según Dirección Elegida
+// Renderizar Departamentos y Secciones de Inspección
 function renderFloors() {
+    if (!elFloorsContainer) return;
     elFloorsContainer.innerHTML = "";
 
-    // Clonar y ordenar pisos de manera ascendente (Sótano a Terraza)
-    let sortedFloors = [...DEFAULT_FLOORS_DATA];
-    sortedFloors.sort((a, b) => a.order - b.order);
+    let sortedSections = [...DEFAULT_SECTIONS_DATA];
+    sortedSections.sort((a, b) => a.order - b.order);
 
     const currentFilter = appState.categoryFilter;
 
-    sortedFloors.forEach(floor => {
-        // Filtrar tareas del piso si aplica
-        const visibleItems = floor.items.filter(item => {
+    sortedSections.forEach(section => {
+        const visibleItems = section.items.filter(item => {
             if (currentFilter === "all") return true;
             return item.category === currentFilter;
         });
 
-        if (visibleItems.length === 0) return; // Ocultar piso si no hay ítems del filtro
+        if (visibleItems.length === 0) return;
 
-        const floorCard = document.createElement("div");
-        floorCard.className = "floor-card";
-        floorCard.id = `card-${floor.id}`;
+        const sectionCard = document.createElement("div");
+        sectionCard.className = "floor-card";
+        sectionCard.id = `card-${section.id}`;
 
-        // Header del Piso
-        const floorHeader = document.createElement("div");
-        floorHeader.className = "floor-header";
-        floorHeader.innerHTML = `
+        const sectionHeader = document.createElement("div");
+        sectionHeader.className = "floor-header";
+        sectionHeader.innerHTML = `
             <div class="floor-title-group">
-                <span class="floor-badge">${floor.badge}</span>
-                <span class="floor-name">${floor.name}</span>
+                <span class="floor-badge">${section.badge}</span>
+                <span class="floor-name">${section.name}</span>
             </div>
             <div class="floor-stats">
-                <span id="stats-${floor.id}">${getFloorProgressText(floor)}</span>
+                <span id="stats-${section.id}">${getSectionProgressText(section)}</span>
                 <i class="fa-solid fa-chevron-down toggle-icon"></i>
             </div>
         `;
 
-        floorHeader.addEventListener("click", () => {
-            floorCard.classList.toggle("collapsed");
+        sectionHeader.addEventListener("click", () => {
+            sectionCard.classList.toggle("collapsed");
         });
 
-        // Cuerpo del Piso (Tareas)
-        const floorBody = document.createElement("div");
-        floorBody.className = "floor-body";
+        const sectionBody = document.createElement("div");
+        sectionBody.className = "floor-body";
 
         const tasksList = document.createElement("div");
         tasksList.className = "task-items-list";
 
         visibleItems.forEach(item => {
-            const response = appState.responses[item.id] || { status: null, severity: "", notes: "", image: null };
+            const resp = appState.responses[item.id] || { status: null, value: "", val1: "", val2: "", count: 0, notes: "", image: null };
             const taskEl = document.createElement("div");
             taskEl.className = "task-item";
             taskEl.id = `item-${item.id}`;
 
-            const isOk = response.status === "ok" ? "active" : "";
-            const isIssue = response.status === "issue" ? "active" : "";
-            const isNa = response.status === "na" ? "active" : "";
+            const okLabel = item.okLabel || "Conforme";
+            const issueLabel = item.issueLabel || "Novedad";
+
+            const isOk = resp.status === "ok" ? "active" : "";
+            const isIssue = resp.status === "issue" ? "active" : "";
+            const isNa = resp.status === "na" ? "active" : "";
+
+            let customControlsHtml = "";
+
+            if (item.type === "value_input") {
+                customControlsHtml = `
+                    <div class="task-custom-controls">
+                        <div class="custom-input-group">
+                            <label><i class="fa-solid fa-pen-to-square"></i> Registro de Valor:</label>
+                            <input type="${item.inputType || 'text'}" 
+                                   class="task-inline-input" 
+                                   placeholder="${item.placeholder || ''}" 
+                                   value="${escapeHtml(resp.value || '')}"
+                                   onchange="updateItemValue('${item.id}', this.value)">
+                        </div>
+                    </div>
+                `;
+            } else if (item.type === "dual_value") {
+                customControlsHtml = `
+                    <div class="task-custom-controls">
+                        <div class="dual-input-wrapper">
+                            <div class="custom-input-group">
+                                <label>${item.label1 || 'Suministro'}:</label>
+                                <input type="text" 
+                                       class="task-inline-input" 
+                                       placeholder="Ej. 7 °C / 45 PSI" 
+                                       value="${escapeHtml(resp.val1 || '')}"
+                                       onchange="updateItemDualValue('${item.id}', 'val1', this.value)">
+                            </div>
+                            <div class="custom-input-group">
+                                <label>${item.label2 || 'Retorno'}:</label>
+                                <input type="text" 
+                                       class="task-inline-input" 
+                                       placeholder="Ej. 12 °C / 55 PSI" 
+                                       value="${escapeHtml(resp.val2 || '')}"
+                                       onchange="updateItemDualValue('${item.id}', 'val2', this.value)">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (item.type === "status_counter") {
+                customControlsHtml = `
+                    <div class="task-custom-controls">
+                        <div class="custom-input-group">
+                            <label><i class="fa-solid fa-server"></i> ${item.counterLabel || 'Equipos Disponibles'}:</label>
+                            <input type="number" 
+                                   min="0" 
+                                   max="${item.max || 10}" 
+                                   class="task-inline-input" 
+                                   style="width: 90px;" 
+                                   value="${resp.count !== undefined ? resp.count : (item.max || 10)}"
+                                   onchange="updateItemCount('${item.id}', this.value)">
+                        </div>
+                    </div>
+                `;
+            } else if (item.type === "text_notes_photo") {
+                customControlsHtml = `
+                    <div class="text-notes-wrapper">
+                        <textarea class="task-textarea" 
+                                  placeholder="Escriba aquí los detalles de la novedad u observación..." 
+                                  onchange="updateItemNotes('${item.id}', this.value)">${escapeHtml(resp.notes || '')}</textarea>
+                    </div>
+                `;
+            } else if (item.type === "general_photos_gallery") {
+                let photosHtml = "";
+                if (appState.generalPhotos && appState.generalPhotos.length > 0) {
+                    photosHtml = appState.generalPhotos.map((photoSrc, idx) => `
+                        <div class="general-photo-card">
+                            <img src="${photoSrc}" alt="Foto General ${idx+1}" onclick="openImageViewer('${photoSrc}', 'Foto General ${idx+1}')">
+                            <button class="btn-delete-photo" onclick="deleteGeneralPhoto(${idx})" title="Eliminar foto"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    `).join("");
+                }
+
+                customControlsHtml = `
+                    <div class="general-photos-wrapper">
+                        <div class="image-upload-wrapper">
+                            <input type="file" id="general-photos-input" accept="image/*" capture="environment" multiple style="display:none;" onchange="handleGeneralPhotosUpload(event)">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="openCameraModal('general_photos')">
+                                <i class="fa-solid fa-camera"></i> Tomar Foto con Cámara
+                            </button>
+                            <label for="general-photos-input" class="btn btn-secondary btn-sm btn-file-upload">
+                                <i class="fa-solid fa-upload"></i> Subir Imágenes
+                            </label>
+                            <span class="file-name-label">${appState.generalPhotos ? appState.generalPhotos.length : 0} fotos en galería</span>
+                        </div>
+                        <div class="general-photos-grid">
+                            ${photosHtml}
+                        </div>
+                    </div>
+                `;
+            }
 
             let observationHtml = "";
-            if (response.status === "issue" && response.notes) {
-                // Build image thumbnail if image exists
+            if (resp.status === "issue" && resp.notes && item.type !== "text_notes_photo") {
                 let imageThumbnailHtml = "";
-                if (response.image) {
+                if (resp.image) {
                     imageThumbnailHtml = `
                         <div class="task-image-preview-container">
-                            <img class="task-image-preview" src="${response.image}" alt="Evidencia" data-item-id="${item.id}">
+                            <img class="task-image-preview" src="${resp.image}" alt="Evidencia" data-item-id="${item.id}">
                         </div>
                     `;
                 }
@@ -599,12 +901,29 @@ function renderFloors() {
                         <div class="obs-content-wrapper">
                             ${imageThumbnailHtml}
                             <div class="obs-content">
-                                <strong><i class="fa-solid fa-triangle-exclamation"></i> Novedad (${response.severity || 'Media'}):</strong>
-                                <p>${escapeHtml(response.notes)}</p>
+                                <strong><i class="fa-solid fa-triangle-exclamation"></i> Novedad (${resp.severity || 'Media'}):</strong>
+                                <p>${escapeHtml(resp.notes)}</p>
                             </div>
                         </div>
                         <button class="btn btn-sm btn-secondary" onclick="openObservationModal('${item.id}', '${escapeHtml(item.title)}')">
                             <i class="fa-solid fa-pen"></i> Editar
+                        </button>
+                    </div>
+                `;
+            }
+
+            let statusControlsHtml = "";
+            if (item.type !== "general_photos_gallery" && item.type !== "text_notes_photo") {
+                statusControlsHtml = `
+                    <div class="task-controls">
+                        <button class="btn-status ${isOk}" data-status="ok" onclick="setStatus('${item.id}', 'ok')">
+                            <i class="fa-solid fa-check"></i> ${okLabel}
+                        </button>
+                        <button class="btn-status ${isIssue}" data-status="issue" onclick="handleIssueClick('${item.id}', '${escapeHtml(item.title)}')">
+                            <i class="fa-solid fa-triangle-exclamation"></i> ${issueLabel}
+                        </button>
+                        <button class="btn-status ${isNa}" data-status="na" onclick="setStatus('${item.id}', 'na')">
+                            <i class="fa-solid fa-minus"></i> N/A
                         </button>
                     </div>
                 `;
@@ -617,49 +936,97 @@ function renderFloors() {
                         <div class="task-title">${item.title}</div>
                         <div class="task-desc">${item.desc}</div>
                     </div>
-                    <div class="task-controls">
-                        <button class="btn-status ${isOk}" data-status="ok" onclick="setStatus('${item.id}', 'ok')">
-                            <i class="fa-solid fa-check"></i> Conforme
-                        </button>
-                        <button class="btn-status ${isIssue}" data-status="issue" onclick="handleIssueClick('${item.id}', '${escapeHtml(item.title)}')">
-                            <i class="fa-solid fa-triangle-exclamation"></i> Novedad
-                        </button>
-                        <button class="btn-status ${isNa}" data-status="na" onclick="setStatus('${item.id}', 'na')">
-                            <i class="fa-solid fa-minus"></i> N/A
-                        </button>
-                    </div>
+                    ${statusControlsHtml}
                 </div>
+                ${customControlsHtml}
                 ${observationHtml}
             `;
 
-            // Add click listeners for image thumbnails after inserting into DOM
             tasksList.appendChild(taskEl);
 
-            // Attach image viewer click event
             const imgThumb = taskEl.querySelector(".task-image-preview");
             if (imgThumb) {
                 imgThumb.addEventListener("click", () => {
-                    openImageViewer(response.image, item.title);
+                    openImageViewer(resp.image, item.title);
                 });
             }
         });
 
-        floorBody.appendChild(tasksList);
-        floorCard.appendChild(floorHeader);
-        floorCard.appendChild(floorBody);
-        elFloorsContainer.appendChild(floorCard);
+        sectionBody.appendChild(tasksList);
+        sectionCard.appendChild(sectionHeader);
+        sectionCard.appendChild(sectionBody);
+        elFloorsContainer.appendChild(sectionCard);
     });
 }
 
-function getFloorProgressText(floor) {
-    const total = floor.items.length;
+function getSectionProgressText(section) {
+    const total = section.items.length;
     let done = 0;
-    floor.items.forEach(item => {
-        if (appState.responses[item.id] && appState.responses[item.id].status) {
+    section.items.forEach(item => {
+        const resp = appState.responses[item.id];
+        if (resp && (resp.status || resp.value || resp.notes || (resp.photos && resp.photos.length > 0))) {
             done++;
         }
     });
     return `${done} / ${total} Verificados`;
+}
+
+// Helpers para actualización de inputs personalizados
+function updateItemValue(itemId, val) {
+    if (!appState.responses[itemId]) appState.responses[itemId] = {};
+    appState.responses[itemId].value = val;
+    saveState();
+    calculateMetrics();
+}
+
+function updateItemDualValue(itemId, field, val) {
+    if (!appState.responses[itemId]) appState.responses[itemId] = {};
+    appState.responses[itemId][field] = val;
+    saveState();
+    calculateMetrics();
+}
+
+function updateItemCount(itemId, val) {
+    if (!appState.responses[itemId]) appState.responses[itemId] = {};
+    appState.responses[itemId].count = parseInt(val, 10) || 0;
+    saveState();
+    calculateMetrics();
+}
+
+function updateItemNotes(itemId, val) {
+    if (!appState.responses[itemId]) appState.responses[itemId] = {};
+    appState.responses[itemId].notes = val;
+    saveState();
+    calculateMetrics();
+}
+
+// Manejo de carga de fotos generales por archivo
+function handleGeneralPhotosUpload(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    let readCount = 0;
+    Array.from(files).forEach(file => {
+        if (!file.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (!appState.generalPhotos) appState.generalPhotos = [];
+            appState.generalPhotos.push(e.target.result);
+            readCount++;
+            if (readCount === files.length) {
+                saveState();
+                renderFloors();
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function deleteGeneralPhoto(index) {
+    if (!appState.generalPhotos) return;
+    appState.generalPhotos.splice(index, 1);
+    saveState();
+    renderFloors();
 }
 
 // Manejo de Estados de Ítems
@@ -669,7 +1036,6 @@ function setStatus(itemId, status) {
     }
 
     if (appState.responses[itemId].status === status) {
-        // Toggle deselection
         appState.responses[itemId].status = null;
     } else {
         appState.responses[itemId].status = status;
@@ -686,14 +1052,14 @@ function handleIssueClick(itemId, title) {
 
 // Modal de Novedades
 function openObservationModal(itemId, title) {
+    if (!elModalItemId || !elModalTitle) return;
     elModalItemId.value = itemId;
     elModalTitle.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Novedad: ${title}`;
     
     const resp = appState.responses[itemId] || {};
-    elModalSeverity.value = resp.severity || "Media";
-    elModalNotes.value = resp.notes || "";
+    if (elModalSeverity) elModalSeverity.value = resp.severity || "Media";
+    if (elModalNotes) elModalNotes.value = resp.notes || "";
 
-    // Restore image state for this item
     tempAttachedImageBase64 = resp.image || null;
     if (tempAttachedImageBase64) {
         if (elImagePreview) elImagePreview.src = tempAttachedImageBase64;
@@ -706,12 +1072,12 @@ function openObservationModal(itemId, title) {
     }
     if (elModalImage) elModalImage.value = "";
     
-    elModal.classList.remove("hidden");
-    elModalNotes.focus();
+    if (elModal) elModal.classList.remove("hidden");
+    if (elModalNotes) elModalNotes.focus();
 }
 
 function closeModal() {
-    elModal.classList.add("hidden");
+    if (elModal) elModal.classList.add("hidden");
     tempAttachedImageBase64 = null;
     if (elModalImage) elModalImage.value = "";
     if (elFileUploadName) elFileUploadName.textContent = "Ninguna imagen seleccionada";
@@ -720,10 +1086,10 @@ function closeModal() {
 }
 
 function saveModalObservation() {
-    const itemId = elModalItemId.value;
+    const itemId = elModalItemId ? elModalItemId.value : null;
     if (itemId && appState.responses[itemId]) {
-        appState.responses[itemId].severity = elModalSeverity.value;
-        appState.responses[itemId].notes = elModalNotes.value;
+        if (elModalSeverity) appState.responses[itemId].severity = elModalSeverity.value;
+        if (elModalNotes) appState.responses[itemId].notes = elModalNotes.value;
         appState.responses[itemId].image = tempAttachedImageBase64 || null;
         saveState();
         renderAll();
@@ -739,8 +1105,8 @@ function calculateMetrics() {
     let issueCount = 0;
     let naCount = 0;
 
-    DEFAULT_FLOORS_DATA.forEach(floor => {
-        floor.items.forEach(item => {
+    DEFAULT_SECTIONS_DATA.forEach(section => {
+        section.items.forEach(item => {
             totalItems++;
             const resp = appState.responses[item.id];
             if (resp) {
@@ -751,17 +1117,22 @@ function calculateMetrics() {
         });
     });
 
-    const answered = okCount + issueCount + naCount;
+    let answered = 0;
+    DEFAULT_SECTIONS_DATA.forEach(section => {
+        section.items.forEach(item => {
+            const resp = appState.responses[item.id];
+            if (resp && (resp.status || resp.value || resp.notes || (resp.photos && resp.photos.length > 0))) answered++;
+        });
+    });
+
     const progressPct = totalItems > 0 ? Math.round((answered / totalItems) * 100) : 0;
 
-    elValProgress.textContent = `${progressPct}%`;
-    elBarProgress.style.width = `${progressPct}%`;
-    elValOk.textContent = okCount;
-    elValIssue.textContent = issueCount;
-    elValNa.textContent = naCount;
+    if (elValProgress) elValProgress.textContent = `${progressPct}%`;
+    if (elBarProgress) elBarProgress.style.width = `${progressPct}%`;
+    if (elValOk) elValOk.textContent = okCount;
+    if (elValIssue) elValIssue.textContent = issueCount;
+    if (elValNa) elValNa.textContent = naCount;
 }
-
-
 
 function escapeHtml(str) {
     if (!str) return '';

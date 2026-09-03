@@ -50,8 +50,13 @@
         <!-- Panel de Configuración de Ronda y Datos de Guardia -->
         <section class="card config-card">
             <div class="card-header">
-                <h2><i class="fa-solid fa-clipboard-user"></i> Datos de la Inspección</h2>
-                <span class="badge badge-info">Control de Guardia</span>
+                <h2><i class="fa-solid fa-clipboard-user"></i> Datos de la Inspección Operativa</h2>
+                <div class="header-badge-group">
+                    <span class="badge badge-info" id="current-round-badge"><i class="fa-solid fa-clock"></i> 10:00 AM - Recorrido Mañana</span>
+                    <button id="btn-extra-round" class="btn btn-sm btn-primary" title="Iniciar un recorrido fuera del horario estándar">
+                        <i class="fa-solid fa-plus-circle"></i> Recorrido Adicional
+                    </button>
+                </div>
             </div>
             <div class="form-grid">
                 <div class="form-group">
@@ -59,22 +64,41 @@
                     <input type="text" id="guard-name" placeholder="Ej. Juan Pérez" required>
                 </div>
                 <div class="form-group">
-                    <label for="shift-type"><i class="fa-solid fa-business-time"></i> Tipo de Guardia</label>
-                    <select id="shift-type">
-                        <option value="Fin de Semana - Diurno">Fin de Semana - Diurno</option>
-                        <option value="Fin de Semana - Nocturno">Fin de Semana - Nocturno</option>
-                        <option value="Día Feriado - Diurno">Día Feriado - Diurno</option>
-                        <option value="Día Feriado - Nocturno">Día Feriado - Nocturno</option>
-                        <option value="Especial">Guardia Especial</option>
+                    <label for="shift-time-slot"><i class="fa-solid fa-clock"></i> Horario del Recorrido</label>
+                    <select id="shift-time-slot">
+                        <option value="10:00 AM">10:00 AM - Recorrido Mañana</option>
+                        <option value="2:00 PM">2:00 PM - Recorrido Tarde</option>
+                        <option value="7:00 PM">7:00 PM - Recorrido Noche</option>
+                        <option value="Recorrido Adicional">Recorrido Adicional</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="inspection-date"><i class="fa-solid fa-calendar-day"></i> Fecha y Hora de Inicio</label>
+                    <label for="inspection-date"><i class="fa-solid fa-calendar-day"></i> Fecha y Hora</label>
                     <input type="datetime-local" id="inspection-date">
                 </div>
                 <div class="form-group">
                     <label for="building-name"><i class="fa-solid fa-building"></i> Sede / Edificio</label>
                     <input type="text" id="building-name" value="Sede Principal - Edificio Operativo">
+                </div>
+            </div>
+
+            <!-- Evaluaciones de Control General: Iluminación y Aliados Comerciales -->
+            <div class="compliance-controls-grid" style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed var(--border-color); display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+                <div class="form-group">
+                    <label for="lighting-status"><i class="fa-solid fa-lightbulb"></i> Iluminación Perimetral e Interna</label>
+                    <select id="lighting-status">
+                        <option value="Cumplió">✔ Cumplió (Iluminación Completa / Programada)</option>
+                        <option value="No Cumplió">⚠ No Cumplió (Fallas / Luminarias Apagadas)</option>
+                        <option value="N/A">N/A - No Aplica en este Horario</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="commercial-hours-status"><i class="fa-solid fa-store"></i> Aliados Comerciales (Horario de Apertura/Cierre)</label>
+                    <select id="commercial-hours-status">
+                        <option value="Cumplieron">✔ Cumplieron (Apertura / Cierre a Tiempo)</option>
+                        <option value="No Cumplieron">⚠ No Cumplieron (Locales cerrados / fuera de hora)</option>
+                        <option value="N/A">N/A - Sin horario comercial activo</option>
+                    </select>
                 </div>
             </div>
         </section>
@@ -96,7 +120,7 @@
                 <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
                 <div class="metric-info">
                     <span class="metric-value" id="val-ok">0</span>
-                    <span class="metric-label">Conforme (OK)</span>
+                    <span class="metric-label">Conforme / Operativo</span>
                 </div>
             </div>
 
@@ -117,30 +141,29 @@
             </div>
         </section>
 
-        <!-- Filtros Rápidos de Filtro por Pisos o Categorías -->
+        <!-- Filtros Rápidos por Departamento / Categoría -->
         <div class="filter-bar">
             <div class="filter-group">
-                <span><i class="fa-solid fa-filter"></i> Filtrar por Categoría:</span>
+                <span><i class="fa-solid fa-filter"></i> Filtrar por Departamento:</span>
                 <select id="category-filter">
-                    <option value="all">Todas las tareas de Operaciones</option>
-                    <option value="Bombas de Agua">Bombas de Agua</option>
-                    <option value="Tableros Eléctricos">Tableros Eléctricos</option>
-                    <option value="Luces Perimetrales">Luces Perimetrales y Fachada</option>
-                    <option value="Vías de Evacuación">Vías de Evacuación</option>
-                    <option value="Aires Centrales">Aires Centrales / Climatización</option>
-                    <option value="Llaves de Gas y Agua">Llaves de Gas y Agua</option>
-                    <option value="Pantallas y Avisos">Pantallas, Avisos y Vitrinas</option>
-                    <option value="Material Publicitario">Material Publicitario Resguardado</option>
+                    <option value="all">Todos los Departamentos</option>
+                    <option value="Asistencias">1. Asistencias (Personal Interno & Contratistas)</option>
+                    <option value="Operaciones">2. Operaciones & Equipos</option>
+                    <option value="Parking">3. Parking / Estacionamiento</option>
+                    <option value="IT">4. IT & Tecnología</option>
+                    <option value="Seguridad">5. Seguridad & CCTV</option>
+                    <option value="Tráfico">6. Tráfico de Visitantes (7 PM)</option>
+                    <option value="Eventos">7. Eventos del Día</option>
+                    <option value="Novedades">8. Reporte Escrito de Novedades</option>
+                    <option value="Fotos">9. Fotos Generales del Recorrido</option>
                 </select>
             </div>
         </div>
 
-        <!-- Contenedor Dinámico de Pisos y Checklist -->
+        <!-- Contenedor Dinámico de Departamentos y Checklist -->
         <section id="floors-container" class="floors-container">
-            <!-- Los pisos se renderizan dinámicamente en orden ascendente (Sótano a Terraza) -->
+            <!-- Las secciones departamentales se renderizan dinámicamente -->
         </section>
-
-
     </main>
 
     <!-- Modal para Agregar Novedades u Observaciones -->
@@ -165,11 +188,14 @@
                     <textarea id="modal-notes" rows="4" placeholder="Describa el hallazgo, ubicación exacta y acciones tomadas..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="modal-image"><i class="fa-solid fa-image"></i> Adjuntar Imagen Evidencia (Opcional)</label>
+                    <label for="modal-image"><i class="fa-solid fa-image"></i> Evidencia Fotográfica (Tomar Foto / Adjuntar)</label>
                     <div class="image-upload-wrapper">
-                        <input type="file" id="modal-image" accept="image/*" style="display: none;">
-                        <label for="modal-image" class="btn btn-secondary btn-file-upload">
-                            <i class="fa-solid fa-upload"></i> Seleccionar Imagen
+                        <input type="file" id="modal-image" accept="image/*" capture="environment" style="display: none;">
+                        <button type="button" id="btn-open-camera-modal" class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-camera"></i> Tomar Foto
+                        </button>
+                        <label for="modal-image" class="btn btn-secondary btn-sm btn-file-upload">
+                            <i class="fa-solid fa-upload"></i> Subir Archivo
                         </label>
                         <span id="file-upload-name" class="file-name-label">Ninguna imagen seleccionada</span>
                     </div>
@@ -184,6 +210,37 @@
             <div class="modal-footer">
                 <button id="modal-cancel" class="btn btn-secondary">Cancelar</button>
                 <button id="modal-save" class="btn btn-primary">Guardar Observación</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Tomar Foto con Cámara del Dispositivo -->
+    <div id="modal-camera" class="modal-backdrop hidden">
+        <div class="modal-card camera-modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-camera"></i> Cámara en Vivo</h3>
+                <button id="btn-close-camera" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body camera-modal-body">
+                <div class="camera-stream-container">
+                    <video id="camera-stream" autoplay playsinline></video>
+                    <canvas id="camera-canvas" style="display: none;"></canvas>
+                    <img id="camera-snapshot-preview" class="hidden" alt="Foto capturada">
+                </div>
+            </div>
+            <div class="modal-footer camera-modal-footer">
+                <button id="btn-switch-camera" class="btn btn-secondary btn-sm" title="Cambiar Cámara">
+                    <i class="fa-solid fa-camera-rotate"></i> Cambiar
+                </button>
+                <button id="btn-capture-photo" class="btn btn-primary">
+                    <i class="fa-solid fa-circle-dot"></i> Capturar Foto
+                </button>
+                <button id="btn-retake-photo" class="btn btn-secondary hidden">
+                    <i class="fa-solid fa-rotate-left"></i> Repetir
+                </button>
+                <button id="btn-use-photo" class="btn btn-success hidden">
+                    <i class="fa-solid fa-check"></i> Usar esta Foto
+                </button>
             </div>
         </div>
     </div>

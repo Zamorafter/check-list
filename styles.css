@@ -878,6 +878,174 @@ body {
     color: #fff;
 }
 
+/* Header Badge Group & Extra Round Controls */
+.header-badge-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Custom Controls for Special Item Types */
+.task-custom-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.custom-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.custom-input-group label {
+    font-size: 0.825rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.task-inline-input {
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.75rem;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    min-width: 140px;
+}
+
+.task-inline-input:focus {
+    outline: none;
+    border-color: var(--border-focus);
+}
+
+.dual-input-wrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.text-notes-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.task-textarea {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 90px;
+}
+
+.task-textarea:focus {
+    outline: none;
+    border-color: var(--border-focus);
+}
+
+/* General Photos Gallery */
+.general-photos-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.general-photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.75rem;
+}
+
+.general-photo-card {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #0f172a;
+}
+
+.general-photo-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.general-photo-card img:hover {
+    transform: scale(1.08);
+}
+
+.general-photo-card .btn-delete-photo {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(239, 68, 68, 0.85);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.general-photo-card .btn-delete-photo:hover {
+    background: #dc2626;
+}
+
+/* Live Camera Modal Styles */
+.camera-modal-card {
+    max-width: 650px;
+    width: 95%;
+}
+
+.camera-stream-container {
+    position: relative;
+    width: 100%;
+    max-height: 65vh;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#camera-stream, #camera-snapshot-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
 /* Print Specific Rules */
 @media print {
     body {
