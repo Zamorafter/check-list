@@ -27,6 +27,7 @@ const DEFAULT_SECTIONS_DATA = [
         order: 2,
         items: [
             { id: "op-voltaje", category: "Operaciones", type: "value_input", issueOnly: true, inputType: "text", unit: "Voltios (V)", placeholder: "Ej. 208V / 220V", title: "Voltaje (Valor Promedio)", desc: "Ingresar lectura del valor promedio de voltaje principal registrado." },
+            { id: "op-iluminacion", category: "Operaciones", type: "status_buttons", okLabel: "Operativo", issueLabel: "No Operativo", title: "Iluminación / Luminarias", desc: "Verificar operatividad de iluminación perimetral, pasillos, áreas comunes y fachada." },
             { id: "op-hidroneumatico", category: "Operaciones", type: "status_buttons", okLabel: "Operativo", issueLabel: "No Operativo", title: "Sistema Hidroneumático", desc: "Verificar bombas de agua, presión de trabajo (PSI) y tableros de control." },
             { id: "op-banos", category: "Operaciones", type: "status_notes", title: "Estado General de Baños", desc: "Revisar baños de visitantes en todos los niveles, ausencia de fugas y limpieza." },
             { id: "op-chiller-1", category: "Operaciones", type: "dual_value", issueOnly: true, title: "Chiller 1 (Suministro & Retorno)", label1: "Suministro (°C / PSI)", label2: "Retorno (°C / PSI)", desc: "Registrar lecturas de temperatura/presión de Suministro y Retorno del Chiller 1." },
@@ -95,7 +96,7 @@ const DEFAULT_SECTIONS_DATA = [
         badge: "Novedades",
         order: 8,
         items: [
-            { id: "nov-reporte", category: "Novedades", type: "text_notes_photo", title: "Descripción Detallada de Novedades", desc: "Redacte las observaciones o incidencias relevantes del recorrido. Puede tomar foto directamente o adjuntar archivo." }
+            { id: "nov-reporte", category: "Novedades", type: "dynamic_novedades_list", title: "Reporte de Novedades Detectadas", desc: "Redacte las observaciones o incidencias del recorrido. Puede agregar múltiples novedades con evidencias fotográficas." }
         ]
     },
     {
@@ -114,12 +115,13 @@ let appState = {
     currentRecordId: null,
     guardName: "",
     shiftTimeSlot: "10:00 AM",
-    inspectionDate: new Date().toISOString().slice(0, 16),
+    inspectionDate: new Date().toISOString().slice(0, 10),
     buildingName: "Sede Principal - Edificio Operativo",
-    lightingStatus: "Cumplió",
-    commercialHoursStatus: "Cumplieron",
     categoryFilter: "all",
     responses: {},
+    novedadesList: [
+        { id: "nov-1", notes: "", image: null }
+    ],
     generalPhotos: []
 };
 
@@ -128,8 +130,6 @@ const elGuardName = document.getElementById("guard-name");
 const elShiftTimeSlot = document.getElementById("shift-time-slot");
 const elInspectionDate = document.getElementById("inspection-date");
 const elBuildingName = document.getElementById("building-name");
-const elLightingStatus = document.getElementById("lighting-status");
-const elCommercialHoursStatus = document.getElementById("commercial-hours-status");
 const elBtnExtraRound = document.getElementById("btn-extra-round");
 const elCurrentRoundBadge = document.getElementById("current-round-badge");
 const elCategoryFilter = document.getElementById("category-filter");
@@ -189,7 +189,6 @@ const elValNa = document.getElementById("val-na");
 const elModal = document.getElementById("modal-observation");
 const elModalItemId = document.getElementById("modal-item-id");
 const elModalTitle = document.getElementById("modal-item-title");
-const elModalSeverity = document.getElementById("modal-severity");
 const elModalNotes = document.getElementById("modal-notes");
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -203,8 +202,6 @@ function saveState() {
     appState.shiftTimeSlot = elShiftTimeSlot ? elShiftTimeSlot.value : "10:00 AM";
     appState.inspectionDate = elInspectionDate ? elInspectionDate.value : "";
     appState.buildingName = elBuildingName ? elBuildingName.value : "";
-    appState.lightingStatus = elLightingStatus ? elLightingStatus.value : "Cumplió";
-    appState.commercialHoursStatus = elCommercialHoursStatus ? elCommercialHoursStatus.value : "Cumplieron";
     localStorage.setItem("guard_checklist_state", JSON.stringify(appState));
 }
 
@@ -219,12 +216,15 @@ function loadSavedState() {
         }
     }
     
+    if (!appState.novedadesList || appState.novedadesList.length === 0) {
+        const oldNotes = appState.responses?.["nov-reporte"]?.notes || "";
+        appState.novedadesList = [{ id: "nov-1", notes: oldNotes, image: null }];
+    }
+
     if (elGuardName) elGuardName.value = appState.guardName || "";
     if (elShiftTimeSlot) elShiftTimeSlot.value = appState.shiftTimeSlot || "10:00 AM";
-    if (elInspectionDate) elInspectionDate.value = appState.inspectionDate || new Date().toISOString().slice(0, 16);
+    if (elInspectionDate) elInspectionDate.value = appState.inspectionDate ? appState.inspectionDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
     if (elBuildingName) elBuildingName.value = appState.buildingName || "Sede Principal - Edificio Operativo";
-    if (elLightingStatus) elLightingStatus.value = appState.lightingStatus || "Cumplió";
-    if (elCommercialHoursStatus) elCommercialHoursStatus.value = appState.commercialHoursStatus || "Cumplieron";
     
     updateRoundBadge();
 }
@@ -256,8 +256,6 @@ function setupEventListeners() {
     });
     if (elInspectionDate) elInspectionDate.addEventListener("change", saveState);
     if (elBuildingName) elBuildingName.addEventListener("input", saveState);
-    if (elLightingStatus) elLightingStatus.addEventListener("change", saveState);
-    if (elCommercialHoursStatus) elCommercialHoursStatus.addEventListener("change", saveState);
 
     if (elBtnExtraRound) {
         elBtnExtraRound.addEventListener("click", () => {
@@ -496,9 +494,83 @@ function useCapturedPhoto() {
         appState.generalPhotos.push(capturedPhotoBase64);
         saveState();
         renderFloors();
+    } else if (cameraTargetType.startsWith("novedad_")) {
+        const novId = cameraTargetType.replace("novedad_", "");
+        if (!appState.novedadesList) appState.novedadesList = [];
+        const nov = appState.novedadesList.find(n => n.id === novId);
+        if (nov) {
+            nov.image = capturedPhotoBase64;
+            saveState();
+            renderFloors();
+        }
     }
 
     closeCameraModal();
+}
+
+// ========== FUNCIONES DE NOVEDADES DINÁMICAS ==========
+function addNewNovedadItem() {
+    if (!appState.novedadesList) appState.novedadesList = [];
+    appState.novedadesList.push({
+        id: "nov-" + Date.now(),
+        notes: "",
+        image: null
+    });
+    saveState();
+    renderFloors();
+}
+
+function deleteNovedadItem(novId) {
+    if (!appState.novedadesList) return;
+    if (appState.novedadesList.length <= 1) {
+        appState.novedadesList[0].notes = "";
+        appState.novedadesList[0].image = null;
+    } else {
+        appState.novedadesList = appState.novedadesList.filter(n => n.id !== novId);
+    }
+    saveState();
+    renderFloors();
+    calculateMetrics();
+}
+
+function updateNovedadNotes(novId, val) {
+    if (!appState.novedadesList) return;
+    const nov = appState.novedadesList.find(n => n.id === novId);
+    if (nov) {
+        nov.notes = val;
+        saveState();
+        calculateMetrics();
+    }
+}
+
+function handleNovedadPhotoUpload(novId, event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+        alert("Por favor seleccione un archivo de imagen válido.");
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        if (!appState.novedadesList) appState.novedadesList = [];
+        const nov = appState.novedadesList.find(n => n.id === novId);
+        if (nov) {
+            nov.image = e.target.result;
+            saveState();
+            renderFloors();
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeNovedadPhoto(novId) {
+    if (!appState.novedadesList) return;
+    const nov = appState.novedadesList.find(n => n.id === novId);
+    if (nov) {
+        nov.image = null;
+        saveState();
+        renderFloors();
+    }
 }
 
 // ========== HISTORY DRAWER FUNCTIONS ==========
@@ -562,7 +634,7 @@ async function renderHistoryList() {
             const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
 
             const dateDisplay = record.inspectionDate
-                ? new Date(record.inspectionDate).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" })
+                ? new Date(record.inspectionDate + "T00:00:00").toLocaleDateString("es-ES", { dateStyle: "medium" })
                 : "Sin fecha";
 
             card.innerHTML = `
@@ -572,7 +644,6 @@ async function renderHistoryList() {
                 <div class="history-card-meta">
                     <span><i class="fa-solid fa-calendar-day"></i> ${dateDisplay}</span>
                     <span><i class="fa-solid fa-clock"></i> Recorrido: <strong>${escapeHtml(record.shiftTimeSlot || "N/D")}</strong></span>
-                    <span><i class="fa-solid fa-lightbulb"></i> Iluminación: ${escapeHtml(record.lightingStatus || "N/D")}</span>
                 </div>
                 <div class="history-card-progress">
                     <span style="font-size: 0.8rem; color: var(--text-muted);">Completado: ${pct}%</span>
@@ -625,9 +696,8 @@ async function saveCurrentShift() {
         shiftTimeSlot: appState.shiftTimeSlot,
         inspectionDate: appState.inspectionDate,
         buildingName: appState.buildingName,
-        lightingStatus: appState.lightingStatus,
-        commercialHoursStatus: appState.commercialHoursStatus,
         responses: JSON.parse(JSON.stringify(appState.responses)),
+        novedadesList: JSON.parse(JSON.stringify(appState.novedadesList || [])),
         generalPhotos: [...appState.generalPhotos],
         savedAt: new Date().toISOString()
     };
@@ -668,11 +738,10 @@ async function loadHistoryRecord(id) {
 
         appState.guardName = record.guardName || "";
         appState.shiftTimeSlot = record.shiftTimeSlot || "10:00 AM";
-        appState.inspectionDate = record.inspectionDate || new Date().toISOString().slice(0, 16);
+        appState.inspectionDate = record.inspectionDate || new Date().toISOString().slice(0, 10);
         appState.buildingName = record.buildingName || "Sede Principal - Edificio Operativo";
-        appState.lightingStatus = record.lightingStatus || "Cumplió";
-        appState.commercialHoursStatus = record.commercialHoursStatus || "Cumplieron";
         appState.responses = record.responses || {};
+        appState.novedadesList = record.novedadesList || [{ id: "nov-1", notes: "", image: null }];
         appState.generalPhotos = record.generalPhotos || [];
         appState.currentRecordId = record.id;
 
@@ -680,8 +749,6 @@ async function loadHistoryRecord(id) {
         if (elShiftTimeSlot) elShiftTimeSlot.value = appState.shiftTimeSlot;
         if (elInspectionDate) elInspectionDate.value = appState.inspectionDate;
         if (elBuildingName) elBuildingName.value = appState.buildingName;
-        if (elLightingStatus) elLightingStatus.value = appState.lightingStatus;
-        if (elCommercialHoursStatus) elCommercialHoursStatus.value = appState.commercialHoursStatus;
 
         updateRoundBadge();
         saveState();
@@ -854,12 +921,67 @@ function renderFloors() {
                         </div>
                     </div>
                 `;
-            } else if (item.type === "text_notes_photo") {
+            } else if (item.type === "dynamic_novedades_list") {
+                if (!appState.novedadesList || appState.novedadesList.length === 0) {
+                    appState.novedadesList = [{ id: "nov-1", notes: "", image: null }];
+                }
+
+                const novCardsHtml = appState.novedadesList.map((nov, idx) => {
+                    let previewHtml = "";
+                    if (nov.image) {
+                        previewHtml = `
+                            <div class="novedad-preview-wrap">
+                                <img src="${nov.image}" class="novedad-preview-thumb" alt="Evidencia Novedad ${idx + 1}" onclick="openImageViewer('${nov.image}', 'Novedad #${idx + 1}')">
+                                <button type="button" class="btn btn-sm btn-danger-outline" onclick="removeNovedadPhoto('${nov.id}')" title="Quitar foto">
+                                    <i class="fa-solid fa-trash"></i> Quitar Foto
+                                </button>
+                            </div>
+                        `;
+                    }
+
+                    const canDelete = appState.novedadesList.length > 1;
+
+                    return `
+                        <div class="dynamic-novedad-item" id="dyn-nov-${nov.id}">
+                            <div class="dynamic-novedad-header">
+                                <span class="dynamic-novedad-number"><i class="fa-solid fa-triangle-exclamation"></i> Novedad #${idx + 1}</span>
+                                ${canDelete ? `
+                                    <button type="button" class="btn btn-sm btn-delete-novedad" onclick="deleteNovedadItem('${nov.id}')" title="Eliminar novedad">
+                                        <i class="fa-solid fa-trash"></i> Eliminar
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <textarea class="task-textarea dynamic-novedad-text" 
+                                      placeholder="Describa detalladamente el hallazgo, ubicación exacta y acciones tomadas..." 
+                                      oninput="updateNovedadNotes('${nov.id}', this.value)">${escapeHtml(nov.notes || '')}</textarea>
+                            
+                            <div class="dynamic-novedad-media">
+                                <div class="image-upload-wrapper">
+                                    <input type="file" id="upload-nov-${nov.id}" accept="image/*" capture="environment" style="display: none;" onchange="handleNovedadPhotoUpload('${nov.id}', event)">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="openCameraModal('novedad_${nov.id}')">
+                                        <i class="fa-solid fa-camera"></i> Tomar Foto
+                                    </button>
+                                    <label for="upload-nov-${nov.id}" class="btn btn-secondary btn-sm btn-file-upload">
+                                        <i class="fa-solid fa-upload"></i> Subir Imagen
+                                    </label>
+                                    <span class="file-name-label">${nov.image ? 'Foto adjunta' : 'Sin evidencia'}</span>
+                                </div>
+                                ${previewHtml}
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+
                 customControlsHtml = `
-                    <div class="text-notes-wrapper">
-                        <textarea class="task-textarea" 
-                                  placeholder="Escriba aquí los detalles de la novedad u observación..." 
-                                  onchange="updateItemNotes('${item.id}', this.value)">${escapeHtml(resp.notes || '')}</textarea>
+                    <div class="dynamic-novedades-container">
+                        <div class="dynamic-novedades-list">
+                            ${novCardsHtml}
+                        </div>
+                        <div class="dynamic-novedades-footer">
+                            <button type="button" class="btn btn-primary btn-add-more-nov" onclick="addNewNovedadItem()">
+                                <i class="fa-solid fa-plus-circle"></i> Agregar más novedades
+                            </button>
+                        </div>
                     </div>
                 `;
             } else if (item.type === "general_photos_gallery") {
@@ -893,7 +1015,7 @@ function renderFloors() {
             }
 
             let observationHtml = "";
-            if (resp.status === "issue" && resp.notes && item.type !== "text_notes_photo") {
+            if (resp.status === "issue" && resp.notes && item.type !== "dynamic_novedades_list") {
                 let imageThumbnailHtml = "";
                 if (resp.image) {
                     imageThumbnailHtml = `
@@ -908,7 +1030,7 @@ function renderFloors() {
                         <div class="obs-content-wrapper">
                             ${imageThumbnailHtml}
                             <div class="obs-content">
-                                <strong><i class="fa-solid fa-triangle-exclamation"></i> Novedad (${resp.severity || 'Media'}):</strong>
+                                <strong><i class="fa-solid fa-triangle-exclamation"></i> Novedad:</strong>
                                 <p>${escapeHtml(resp.notes)}</p>
                             </div>
                         </div>
@@ -924,7 +1046,7 @@ function renderFloors() {
             let statusControlsHtml = "";
             const isOnlyIssueRequired = item.issueOnly || item.category === "Asistencias" || item.type === "asistencia_counter" || item.type === "value_input" || item.type === "dual_value" || item.type === "status_counter";
 
-            if (item.type !== "general_photos_gallery" && item.type !== "text_notes_photo") {
+            if (item.type !== "general_photos_gallery" && item.type !== "dynamic_novedades_list") {
                 if (isOnlyIssueRequired) {
                     statusControlsHtml = `
                         <div class="task-controls">
@@ -981,6 +1103,10 @@ function renderFloors() {
 }
 
 function getSectionProgressText(section) {
+    if (section.id === "sec-novedades") {
+        const count = (appState.novedadesList || []).filter(n => n.notes && n.notes.trim().length > 0).length;
+        return count > 0 ? `${count} Novedad(es) registrada(s)` : `0 Registradas`;
+    }
     const total = section.items.length;
     let done = 0;
     section.items.forEach(item => {
@@ -1050,7 +1176,7 @@ function deleteGeneralPhoto(index) {
 
 function setStatus(itemId, status) {
     if (!appState.responses[itemId]) {
-        appState.responses[itemId] = { status: null, severity: "", notes: "", image: null };
+        appState.responses[itemId] = { status: null, notes: "", image: null };
     }
 
     if (appState.responses[itemId].status === status) {
@@ -1074,7 +1200,6 @@ function openObservationModal(itemId, title) {
     elModalTitle.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Novedad: ${title}`;
     
     const resp = appState.responses[itemId] || {};
-    if (elModalSeverity) elModalSeverity.value = resp.severity || "Media";
     if (elModalNotes) elModalNotes.value = resp.notes || "";
 
     tempAttachedImageBase64 = resp.image || null;
@@ -1105,7 +1230,6 @@ function closeModal() {
 function saveModalObservation() {
     const itemId = elModalItemId ? elModalItemId.value : null;
     if (itemId && appState.responses[itemId]) {
-        if (elModalSeverity) appState.responses[itemId].severity = elModalSeverity.value;
         if (elModalNotes) appState.responses[itemId].notes = elModalNotes.value;
         appState.responses[itemId].image = tempAttachedImageBase64 || null;
         saveState();
@@ -1133,11 +1257,19 @@ function calculateMetrics() {
         });
     });
 
+    // Sumar novedades escritas válidas a las métricas de novedad
+    const writtenNovsCount = (appState.novedadesList || []).filter(n => n.notes && n.notes.trim().length > 0).length;
+    issueCount += writtenNovsCount;
+
     let answered = 0;
     DEFAULT_SECTIONS_DATA.forEach(section => {
         section.items.forEach(item => {
-            const resp = appState.responses[item.id];
-            if (resp && (resp.status || resp.value || resp.notes || resp.count !== undefined || (resp.photos && resp.photos.length > 0))) answered++;
+            if (item.id === "nov-reporte") {
+                if (writtenNovsCount > 0) answered++;
+            } else {
+                const resp = appState.responses[item.id];
+                if (resp && (resp.status || resp.value || resp.notes || resp.count !== undefined || (resp.photos && resp.photos.length > 0))) answered++;
+            }
         });
     });
 

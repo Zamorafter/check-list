@@ -13,6 +13,8 @@
     <!-- html2pdf & jsPDF libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- SheetJS (xlsx) library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -36,10 +38,13 @@
                 <button id="btn-reset" class="btn btn-secondary" title="Reiniciar Checklist">
                     <i class="fa-solid fa-rotate-left"></i> Reiniciar
                 </button>
-                <button id="btn-save-shift" class="btn btn-success" title="Guardar Guardia Actual">
+                <button id="btn-save-shift" class="btn btn-secondary" title="Guardar Guardia Actual">
                     <i class="fa-solid fa-floppy-disk"></i> Guardar
                 </button>
-                <button id="btn-pdf" class="btn btn-primary">
+                <button id="btn-excel" class="btn btn-success" title="Exportar a Hoja de Cálculo Excel">
+                    <i class="fa-solid fa-file-excel"></i> Generar Excel
+                </button>
+                <button id="btn-pdf" class="btn btn-primary" title="Generar Informe PDF">
                     <i class="fa-solid fa-file-pdf"></i> Generar PDF
                 </button>
             </div>
@@ -73,32 +78,12 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="inspection-date"><i class="fa-solid fa-calendar-day"></i> Fecha y Hora</label>
-                    <input type="datetime-local" id="inspection-date">
+                    <label for="inspection-date"><i class="fa-solid fa-calendar-day"></i> Fecha</label>
+                    <input type="date" id="inspection-date">
                 </div>
                 <div class="form-group">
                     <label for="building-name"><i class="fa-solid fa-building"></i> Sede / Edificio</label>
                     <input type="text" id="building-name" value="Sede Principal - Edificio Operativo">
-                </div>
-            </div>
-
-            <!-- Evaluaciones de Control General: Iluminación y Aliados Comerciales -->
-            <div class="compliance-controls-grid" style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed var(--border-color); display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
-                <div class="form-group">
-                    <label for="lighting-status"><i class="fa-solid fa-lightbulb"></i> Iluminación Perimetral e Interna</label>
-                    <select id="lighting-status">
-                        <option value="Cumplió">✔ Cumplió (Iluminación Completa / Programada)</option>
-                        <option value="No Cumplió">⚠ No Cumplió (Fallas / Luminarias Apagadas)</option>
-                        <option value="N/A">N/A - No Aplica en este Horario</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="commercial-hours-status"><i class="fa-solid fa-store"></i> Aliados Comerciales (Horario de Apertura/Cierre)</label>
-                    <select id="commercial-hours-status">
-                        <option value="Cumplieron">✔ Cumplieron (Apertura / Cierre a Tiempo)</option>
-                        <option value="No Cumplieron">⚠ No Cumplieron (Locales cerrados / fuera de hora)</option>
-                        <option value="N/A">N/A - Sin horario comercial activo</option>
-                    </select>
                 </div>
             </div>
         </section>
@@ -175,14 +160,6 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="modal-item-id">
-                <div class="form-group">
-                    <label for="modal-severity"><i class="fa-solid fa-triangle-exclamation"></i> Nivel de Severidad de la Novedad</label>
-                    <select id="modal-severity">
-                        <option value="Baja">Baja (Informativo / Menor)</option>
-                        <option value="Media" selected>Media (Requiere atención próxima)</option>
-                        <option value="Alta">Alta / Crítica (Requiere intervención inmediata)</option>
-                    </select>
-                </div>
                 <div class="form-group">
                     <label for="modal-notes"><i class="fa-solid fa-comment-dots"></i> Descripción Detallada de la Novedad</label>
                     <textarea id="modal-notes" rows="4" placeholder="Describa el hallazgo, ubicación exacta y acciones tomadas..."></textarea>
@@ -289,5 +266,6 @@
     <script src="db.js"></script>
     <script src="app.js"></script>
     <script src="pdf-generator.js"></script>
+    <script src="excel-generator.js"></script>
 </body>
 </html>
